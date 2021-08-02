@@ -9,15 +9,17 @@ ENV env_jupyter_port=jupyter_port
 RUN apt-get update && apt-get install -y gcc
 RUN conda install -c conda-forge jupyterlab==3.0.11
 
+WORKDIR ./
+
 # Install the aries_cloudcontroller
 ADD requirements.txt requirements.txt
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 # Install submodule SyMPC (see SyMPC/docker-images/Dockerfile)
-COPY SyMPC/ SyMPC/
+ADD SyMPC SyMPC
 WORKDIR SyMPC
 RUN pip3 install setuptools_scm
-RUN pip3 install -r requirements.txt && pip3 install -r requirements.dev.txt
+RUN pip3 install -r requirements.txt #&& pip3 install -r requirements.dev.txt
 RUN pip3 install -e .
 
 # Create jupyter notebook workspace

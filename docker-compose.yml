@@ -89,6 +89,7 @@ services:
       - 8889:8888
       # WEBHOOK_PORT
       - 4010:3010
+
   #########################################################################
   #### authority Services
   authority-wallet-db:
