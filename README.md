@@ -27,11 +27,11 @@ Ensure that Docker is running. If it is not try `sudo dockerd` in another termin
 
 ## Starting the Playground
 
-This playground comes with example configuration of two actors Alice and Bob.
+This playground comes with example configuration of two actors authority and manufacturer1.
 
-Before you can launch the playground you must set the .env file for each of Alice and Bob. The file should be under `playground/<agent_name>/.env`. 
+Before you can launch the playground you must set the .env file for each of authority and manufacturer1. The file should be under `playground/<agent_name>/.env`. 
 
-For quick start just copy the example env files provided (e.g. bob-example.env) and rename them to .env.
+For quick start just copy the example env files provided (e.g. manufacturer1-example.env) and rename them to .env.
 
 Then run:
 
@@ -67,11 +67,11 @@ To add an actor you need to make three changes:
 * Define the actor services in the `docker-compose.yml`. More detailed instructions included in the comments in that file, including commented out set of services for the actor `actor` that you can copy and use as a template to get started. You will need to edit these.
 * Add the new services to the DEFAULT_CONTAINERS variable in the `manage.sh` script
 
-Feel free to customise Alice and Bob aswell. It makes sense to name your actors something meaningful to the usecase you are trying to model.
+Feel free to customise authority and manufacturer1 aswell. It makes sense to name your actors something meaningful to the usecase you are trying to model.
 
 ## ACA-Py Agent Configuration
 
-Each agent instance has it's own environment file e.g. `alice/.alice-example.env`. These define default ACA-PY environment variables, which are best understood by reading through the code that parses them. This can be found [here](https://github.com/hyperledger/aries-cloudagent-python/blob/main/aries_cloudagent/config/argparse.py).
+Each agent instance has it's own environment file e.g. `authority/.authority-example.env`. These define default ACA-PY environment variables, which are best understood by reading through the code that parses them. This can be found [here](https://github.com/hyperledger/aries-cloudagent-python/blob/main/aries_cloudagent/config/argparse.py).
 
 ## Using Different Indy Networks
 
