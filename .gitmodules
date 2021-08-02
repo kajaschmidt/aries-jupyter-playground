@@ -1,4 +1,1 @@
 
-[submodule "SyMPC"]
-	path = SyMPC
-	url = git@github.com:OpenMined/SyMPC.git
