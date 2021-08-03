@@ -65,7 +65,8 @@ EOF
 # Default Settings:
 # -----------------------------------------------------------------------------------------------------------------
 DEFAULT_CONTAINERS="manufacturer1-wallet-db ngrok-manufacturer1 manufacturer1-agent manufacturer1-business-logic
-                    authority-wallet-db ngrok-authority authority-agent authority-business-logic"
+                    authority-wallet-db ngrok-authority authority-agent authority-business-logic
+                    city-wallet-db ngrok-city city-agent city-business-logic"
                     # tails-server "
 
 PRODUCTION_CONTAINERS="manufacturer1-wallet-db manufacturer1-agent manufacturer1-business-logic

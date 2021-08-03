@@ -141,6 +141,58 @@ services:
     ports:
       - "8888:8888"
       - 3010:3010
+
+#### ACTOR TEMPLATE SERVICES - Uncomment and edit as appropriate ######
+  city-wallet-db:
+    image: postgres:11
+    container_name: city-wallet-db
+    command: postgres -c listen_addresses='*'
+    # env file defines
+    env_file:
+      - agents/city/.env
+    volumes:
+      - ./resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - city-domain
+    tty: true
+  ngrok-city:
+    image: wernight/ngrok
+    command: ngrok http city-agent:3020 --log stdout
+    networks:
+      - city-domain
+  city-agent:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.agent
+    env_file:
+      - agents/city/.env
+    ports:
+      # HTTP_PORT
+      - 3022:3020
+      # ADMIN_PORT
+      - 3023:3021
+    depends_on:
+      - city-wallet-db
+    networks:
+      - city-domain
+  city-business-logic:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.controller
+    env_file:
+      - agents/city/.env
+    depends_on:
+      - city-agent
+    networks:
+      - city-domain
+    volumes:
+      - ./agents/city/notebooks:/workspace
+      - ./recipes:/workspace/recipes
+    ports:
+      - 8890:8888
+      # WEBHOOK_PORT
+      - 3011:3010
+
 #    #### ACTOR TEMPLATE SERVICES - Uncomment and edit as appropriate ######
 #      template-wallet-db:
 #        image: postgres:11
@@ -191,6 +243,7 @@ services:
 #          - 8890:8888
 #          # WEBHOOK_PORT
 #          - <UNIQUE_PORT>:3010
+
 ##### UNCOMMENT FOR A TAILS SERVER ######
 # Note - for revocation to work you will have to make additional changes to the env files
 #  tails-server:
@@ -213,3 +266,4 @@ services:
 networks:
   authority-domain:
   manufacturer1-domain:
+  city-domain:
