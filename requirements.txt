@@ -1,2 +1,6 @@
-termcolor
 aries_cloudcontroller>=0.2.6
+asyncio
+termcolor
+pprintpp
+pypubsub
+qrcode
