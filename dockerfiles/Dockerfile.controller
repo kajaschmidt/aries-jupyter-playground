@@ -15,6 +15,10 @@ WORKDIR ./
 ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
+# Install Syft
+ADD PySyft/packages/syft syft
+RUN pip3 install syft
+
 # Install submodule SyMPC (see SyMPC/docker-images/Dockerfile)
 ADD SyMPC SyMPC
 WORKDIR SyMPC
