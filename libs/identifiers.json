@@ -1,0 +1,11 @@
+{
+    "authority_did": "MTXSc4YD8wixyM9ekZbmMC",
+    "city_schema_identifiers": {
+        "cred_def": "MTXSc4YD8wixyM9ekZbmMC:3:CL:246685:default",
+        "schema_id": "MTXSc4YD8wixyM9ekZbmMC:2:certify-city-agency:0.0.1"
+    },
+    "manufacturer_schema_identifiers": {
+        "cred_def": "MTXSc4YD8wixyM9ekZbmMC:3:CL:246687:default",
+        "schema_id": "MTXSc4YD8wixyM9ekZbmMC:2:certify-manufacturer:0.0.1"
+    }
+}

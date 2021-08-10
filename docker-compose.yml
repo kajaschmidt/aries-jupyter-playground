@@ -17,6 +17,12 @@
 ######################################################################################
 version: "3"
 services:
+  #### duet service ####
+  #duet-base:
+  #  container_name: duet-base
+  #  build:
+  #    context: .
+  #    dockerfile: dockerfiles/Dockerfile.duet
   ##### manufacturer1 Services #####
   # wallet-db
   # a postgres database where agent data will be persisted unless you run ./manage down
@@ -38,6 +44,7 @@ services:
   # Use if wish to expose agent to public. E.g. so mobile wallets can access #
   ngrok-manufacturer1:
     image: wernight/ngrok
+    container_name: ngrok-manufacturer1
     env_file:
       - agents/manufacturer1/.env
     ## You must make sure this points to your agent service. e.g. manufacturer1-agent:HTTP_PORT
@@ -51,6 +58,7 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.agent
+    container_name: manufacturer1-agent
     env_file:
       - agents/manufacturer1/.env
     ## These map from ports defined in the .env file to unique ports on your machine
@@ -73,10 +81,12 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.controller
+    container_name: manufacturer1-business-logic
     env_file:
       - agents/manufacturer1/.env
     depends_on:
       - manufacturer1-agent
+      #- duet-base
     networks:
       - manufacturer1-domain
     volumes:
@@ -105,6 +115,7 @@ services:
     tty: true
   ngrok-authority:
     image: wernight/ngrok
+    container_name: ngrok-authority
     env_file:
       - agents/authority/.env
     command: ngrok http authority-agent:3020 --log stdout
@@ -114,6 +125,7 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.agent
+    container_name: authority-agent
     env_file:
       - agents/authority/.env
     ports:
@@ -127,10 +139,12 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.controller
+    container_name: authority-business-logic
     env_file:
       - agents/authority/.env
     depends_on:
       - authority-agent
+      #- duet-base
     networks:
       - authority-domain
     volumes:
@@ -157,6 +171,7 @@ services:
     tty: true
   ngrok-city:
     image: wernight/ngrok
+    container_name: ngrok-city
     command: ngrok http city-agent:3020 --log stdout
     networks:
       - city-domain
@@ -164,6 +179,7 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.agent
+    container_name: city-agent
     env_file:
       - agents/city/.env
     ports:
@@ -179,15 +195,18 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile.controller
+    container_name: city-business-logic
     env_file:
       - agents/city/.env
     depends_on:
       - city-agent
+      #- duet-base
     networks:
       - city-domain
     volumes:
       - ./agents/city/notebooks:/workspace
       - ./recipes:/workspace/recipes
+      - ./libs:/workspace/libs
     ports:
       - 8890:8888
       # WEBHOOK_PORT

@@ -1,4 +1,5 @@
 FROM continuumio/miniconda3
+#FROM duet-base
 
 ENV WORKSPACE /workspace
 
@@ -16,8 +17,8 @@ ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
 # Install Syft
-ADD PySyft/packages/syft syft
-RUN pip3 install syft
+#ADD PySyft/packages/syft syft
+#RUN pip3 install syft
 
 # Install submodule SyMPC (see SyMPC/docker-images/Dockerfile)
 ADD SyMPC SyMPC
