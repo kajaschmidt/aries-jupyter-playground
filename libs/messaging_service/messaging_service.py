@@ -5,6 +5,9 @@ import nest_asyncio
 from termcolor import colored
 from .contact import Contact
 
+from pprintpp import pprint
+from termcolor import colored
+
 
 nest_asyncio.apply()
 
@@ -35,8 +38,6 @@ class MessagingService:
             print(f"Message received from connection {connection_id} with alias {contact.alias}")
             content = payload["content"]
             state = "received"
-            
-           
             contact.new_message(content, state)
     
     # Receive connection messages
@@ -74,7 +75,8 @@ class MessagingService:
             if contact.connection_id == connection_id:
                 return contact
         return None
-    
+
+
     def display_inbox_for_contact(self, connection_id):
         contact = self.find_contact_by_id(connection_id)
         if not contact:
@@ -99,7 +101,6 @@ class MessagingService:
         
     def get_contacts(self):
         return self.contacts
-    
     
     def send_message(self, connection_id, content):
         contact = self.find_contact_by_id(connection_id)
@@ -131,15 +132,13 @@ class MessagingService:
         connection_id = response["connection_id"]
         self.add_contact(connection_id, alias)
         json_invitation = json.dumps(invitation)
-        
-        print("-" * 100)
-        print(f"\nShare this invite object with another entity you wish to add as a contact under alias {alias}\n")
-        print(json_invitation)
-        print("\n")
-        print("-" * 100)
+
+        print(colored("\n---------------------------------------------------------------------", attrs=["bold"]))
+        print(colored("\nCopy & paste invitation and share with external agent:", "blue", attrs=["bold"]))
+        pprint(json_invitation)
+        print(colored("\n---------------------------------------------------------------------", attrs=["bold"]))
         return {"connection_id": connection_id, "invitation": json_invitation}
-        
-    
+
     def accept_contact_invitation(self, invitation, alias, label = None):
         loop = asyncio.get_event_loop()
         auto_accept="false"
