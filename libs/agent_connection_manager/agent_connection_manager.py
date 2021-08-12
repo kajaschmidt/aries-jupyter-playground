@@ -18,19 +18,21 @@ import nest_asyncio
 
 nest_asyncio.apply()
 
-class ConnectionService:
+class AgentConnectionManager:
     def __init__(
             self,
             agent_controller: AriesAgentController,
             role: str,
     ) -> None:
+
         self.agent_controller = agent_controller
         self.agent_listeners = [
             {"topic": "connections", "handler": self._connections_handler},
             {"topic": "basicmessages", "handler": self._messages_handler},
         ]
-        if role == "prover":
+        if role == "holder":
             self.agent_listeners.append({"topic": "present_proof", "handler": self._prover_proof_handler})
+            self.agent_listeners.append({"topic": "issue_credential", "handler": self._holder_handler})
         elif role == "relying_party":
             self.agent_listeners.append({"topic": "present_proof", "handler": self._verifier_proof_handler})
         elif role == "issuer":
@@ -40,11 +42,12 @@ class ConnectionService:
 
         listener_topics = [s["topic"] for s in self.agent_listeners]
 
-        print(colored("Init ConnectionService:", attrs=["bold"]))
-        print("* Defines and registers agent listeners for {r}: ".format(r=role), listener_topics)
-        print("* Stores initiated connections")
-        print("* Allows to easily create and accept connection invitations")
-        print("* Facilitates process of issuing, verifying, or proving verifiable credentials")
+        print(colored("Successfully initiated connection handler for ACA-PY agent", COLOR_SUCCESS, attrs=["bold"]))
+        #print(colored("Init AgentConnectionManager:", attrs=["bold"]))
+        #print("* Defines and registers agent listeners for {r}: ".format(r=role), listener_topics)
+        #print("* Stores initiated connections")
+        #print("* Allows to easily create and accept connection invitations")
+        #print("* Facilitates process of issuing, verifying, or proving verifiable credentials")
 
     def get_connection(self, connection_id: str):
         """
@@ -437,3 +440,46 @@ class ConnectionService:
         else:
             print("Paload \n")
             print(payload)
+
+    def _holder_handler(self, payload):
+        connection_id = payload['connection_id']
+        exchange_id = payload['credential_exchange_id']
+        state = payload['state']
+        role = payload['role']
+        print("\n---------------------------------------------------\n")
+        print("Handle Issue Credential Webhook")
+        print(f"Connection ID : {connection_id}")
+        print(f"Credential exchange ID : {exchange_id}")
+        print("Agent Protocol Role : ", role)
+        print("Protocol State : ", state)
+        print("\n---------------------------------------------------\n")
+        print("Handle Credential Webhook Payload")
+
+        if state == "offer_received":
+            print("Credential Offer Recieved")
+            proposal = payload["credential_proposal_dict"]
+            print(
+                "The proposal dictionary is likely how you would understand and display a credential offer in your application")
+            print("\n", proposal)
+            print("\n This includes the set of attributes you are being offered")
+            attributes = proposal['credential_proposal']['attributes']
+            print(attributes)
+            ## YOUR LOGIC HERE
+        elif state == "request_sent":
+            print(
+                "\nA credential request object contains the commitment to the agents master secret using the nonce from the offer")
+            ## YOUR LOGIC HERE
+        elif state == "credential_received":
+            print("Received Credential")
+            ## YOUR LOGIC HERE
+        elif state == "credential_acked":
+            ## YOUR LOGIC HERE
+            credential = payload["credential"]
+            print("Credential Stored\n")
+            print(credential)
+
+            print("\nThe referent acts as the identifier for retrieving the raw credential from the wallet")
+            # Note: You would probably save this in your application database
+            credential_referent = credential["referent"]
+            print("Referent", credential_referent)
+
