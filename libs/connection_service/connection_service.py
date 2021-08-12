@@ -22,25 +22,29 @@ class ConnectionService:
     def __init__(
             self,
             agent_controller: AriesAgentController,
+            role: str,
     ) -> None:
         self.agent_controller = agent_controller
         self.agent_listeners = [
             {"topic": "connections", "handler": self._connections_handler},
-            {"topic": "prover_proof", "handler": self._prover_proof_handler},
-            {"topic": "verifier_proof", "handler": self._verifier_proof_handler},
-            {"topic": "issue_credential", "handler": self._issuer_handler},
             {"topic": "basicmessages", "handler": self._messages_handler},
         ]
+        if role == "prover":
+            self.agent_listeners.append({"topic": "present_proof", "handler": self._prover_proof_handler})
+        elif role == "relying_party":
+            self.agent_listeners.append({"topic": "present_proof", "handler": self._verifier_proof_handler})
+        elif role == "issuer":
+            self.agent_listeners.append({"topic": "issue_credential", "handler": self._issuer_handler})
         self.agent_controller.register_listeners(self.agent_listeners, defaults=False)
         self.connections: [Connection] = []
 
         listener_topics = [s["topic"] for s in self.agent_listeners]
 
-        print(colored("Initiate ConnectionService:", attrs=["bold"]))
-        print("* Defines and registers agent listeners: ", listener_topics)
+        print(colored("Init ConnectionService:", attrs=["bold"]))
+        print("* Defines and registers agent listeners for {r}: ".format(r=role), listener_topics)
         print("* Stores initiated connections")
         print("* Allows to easily create and accept connection invitations")
-        print("* Facilitates process of issuing and verifying verifiable credentials")
+        print("* Facilitates process of issuing, verifying, or proving verifiable credentials")
 
     def get_connection(self, connection_id: str):
         """
@@ -57,6 +61,13 @@ class ConnectionService:
         Returns: All connections of self
         """
         return self.connections
+
+    def get_credentials(self):
+        loop = asyncio.get_event_loop()
+        credentials = loop.run_until_complete(
+            self.agent_controller.credentials.get_all()
+        )
+        return credentials
 
     def create_connection_invitation(self, alias, auto_accept: str, public: str, multi_use: str) -> str:
         """
@@ -111,7 +122,8 @@ class ConnectionService:
         return connection_id
 
     def wrapper_receive_connection_invitation(self, alias, auto_accept, label=None):
-        invitation = input(colored("Please enter invitation received by external agent: ", "blue"))
+        print(colored("Please enter invitation received by external agent.", COLOR_INPUT, attrs=["bold"]))
+        invitation = input(colored("Invitation: ", COLOR_INPUT))
         invitation = ast.literal_eval(invitation)
 
         response = self._receive_connection_invitation(invitation, alias, auto_accept, label)
@@ -195,26 +207,109 @@ class ConnectionService:
         )
 
         if credential_attributes is None:
-            attributes = schema_info["attrNames"]
-            credential_attributes = []
-            print(colored("Please enter the following information for the {n} scheme (ID: {id}): ".format(n=schema_info['name'], id=schema_id), COLOR_INPUT, attrs=["bold"]))
-            for attr in attributes:
-                value = input(colored("{n}: ".format(n=attr), COLOR_INPUT))
-                credential_attributes.append({"name": attr, "value": value})
-            pprint(credential_attributes)
+            attributes = schema_info["schema"]["attrNames"]
+            # Get credential attributes and loop input until user is happy with the data
+            happy = False
+            while happy is False:
+                print(colored("Please enter the following information for the {n} scheme (ID: {id}): ".format(n=schema_info["schema"]['name'], id=schema_id), COLOR_INPUT, attrs=["bold"]))
+                credential_attributes = []
+                for attr in attributes:
+                    value = input(colored("{n}: ".format(n=attr), COLOR_INPUT))
+                    credential_attributes.append({"name": attr, "value": value})
+                happy = get_choice("Is the information correct?", "Please enter the information again.")
 
         loop = asyncio.get_event_loop()
-        message_response = loop.run_until_complete(
+        loop.run_until_complete(
             self.agent_controller.issuer.send_credential(connection_id, schema_id, cred_def_id, credential_attributes, comment, auto_remove, trace)
         )
 
-        print("message response:", message_response)
-        return message_response
 
-    def request_vc(self, connection_id, state):
-        print("this is where you can request a vc")
+    def request_vc(self, connection_id: str, schema_id: str, credential_id=None, role="prover", thread_id=None):
+        """
+        Fetch offer made by issuer and request record
+        Args:
+            connection_id: connection id via which a vc was offered
+            state: state denoting an offer was received
+            role: role of the agent
+            thread_id: @todo: find out!
 
+        Returns:
 
+        """
+
+        # Get all records to find the offer made by the external agent
+        loop = asyncio.get_event_loop()
+        records_response = loop.run_until_complete(
+            self.agent_controller.issuer.get_records(connection_id)
+        )
+
+        # Loop through records to find VC offer for schema_id
+        state = None
+        for record in records_response["results"]:
+            if record["schema_id"] == schema_id:
+                state = record["state"]
+                record_id = record["credential_exchange_id"]
+                print("Found record for {s} at state {state}".format(s=schema_id, state=state))
+                break
+
+        # Return if no suitable offered vc was found
+        if state != "offer_received":
+            return None
+
+        # send request for VC that was offered
+        loop = asyncio.get_event_loop()
+        await_record = loop.run_until_complete(
+            self.agent_controller.issuer.send_request_for_record(record_id)
+        )
+
+        #@todo: manage over holder_handler!
+        print(colored("Found credential with ID {i}".format(i=record_id), COLOR_SUCCESS))
+        print("Offer : ")
+        pprint(await_record["credential_proposal_dict"])
+
+        # Therefore: check if VC is stored, else ask if it should be stored.
+        is_in_wallet = self.is_vc_in_wallet(record_id)
+
+        if is_in_wallet is False:
+            choice = get_choice("Do you want to store the VC with ID {i}".format(i=record_id), "Please store the VC by executing connections._store_vc()")
+            if choice is True:
+                self._store_vc(record_id, credential_id)
+
+    def is_vc_in_wallet(self, vc: str):
+        """
+        Verifies if a verifiable credential named vc is within the wallet of an agent_controller
+        Storing a VC is done automatically if ACAPY_AUTO_STORE_CREDENTIAL=true in .env file
+        Args:
+            vc: verifiable credential
+        Returns: -
+        """
+        credentials = self.get_credentials()
+
+        print("credentials:")
+        pprint(credentials)
+
+        #@todo: check if this is the correct way to filter with referent!
+        if any(result["referent"] == vc for result in credentials["results"]):
+            print(colored("Credential {vc} is stored in wallet.".format(vc=vc), COLOR_SUCCESS, attrs=["bold"]))
+            return True
+        else:
+            print(colored(
+                "Credential {vc} is not stored in wallet.".format(
+                    vc=vc), COLOR_ERROR, attrs=["bold"]))
+            return False
+
+    def _store_vc(self, record_id: str, credential_id=None):
+
+        if credential_id is None:
+            credential_id = input(colored("Please provide a Credential ID for VC with Record ID {r}".format(r=record_id), COLOR_INPUT))
+
+        loop = asyncio.get_event_loop()
+        store_cred_response = loop.run_until_complete(
+            self.agent_controller.issuer.store_credential(record_id, credential_id)
+        )
+
+        #@todo: manage over holder_handler!
+        print(colored("Successfully stored credential (Credential ID: {c})".format(c=credential_id), COLOR_SUCCESS, attrs=["bold"]))
 
     # Connection handlers
     def _connections_handler(self, payload):
@@ -255,7 +350,8 @@ class ConnectionService:
         if state == "offer_sent":
             proposal = payload["credential_proposal_dict"]
             attributes = proposal['credential_proposal']['attributes']
-            print(f"Offering : \n {attributes}")
+            print(f"Offering :")
+            pprint(attributes)
             ## YOUR LOGIC HERE
         elif state == "request_received":
             print("Request for credential received")
@@ -268,7 +364,7 @@ class ConnectionService:
         connection_id = payload["connection_id"]
         print("\n---------------------------------------------------------------------")
         print("Handle message", connection_id)
-        pprint(payload)
+        print(payload)
         print("---------------------------------------------------------------------")
 
     def _prover_proof_handler(self, payload):
