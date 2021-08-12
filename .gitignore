@@ -1,5 +1,5 @@
 .idea
-
+.DS_Store
 .env
 
 .code
@@ -10,3 +10,4 @@ build
 __pycache__/
 
 .vscode/
+.manage_proxy.sh
