@@ -1,1 +1,1 @@
-from .agent_connection_manager import AgentConnectionManager
+from .agent_connection_manager import IssuingAuthority
