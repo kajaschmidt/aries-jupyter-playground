@@ -439,7 +439,7 @@ class CredentialHolder(AgentConnectionManager):
             return None
 
         if auto_request is False:
-            print(colored("\nRequest VC from offer"), COLOR_INPUT, attrs=["bold"])
+            print(colored("\nRequest VC from offer", COLOR_INPUT, attrs=["bold"]))
             choice = get_choice("Request VC", "VC will not be requested")
         else:
             choice = False

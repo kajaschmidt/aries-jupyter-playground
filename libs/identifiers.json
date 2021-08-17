@@ -1,11 +1,11 @@
 {
     "city_schema_identifiers": {
-        "schema_id": "QqwuB4giWQkYGPyDXq6ZHm:2:certify-city-agency:0.0.1",
-        "cred_def": "QqwuB4giWQkYGPyDXq6ZHm:3:CL:250392:default"
+        "schema_id": "LDqVKMf7yVW7ZtcWgbxjgQ:2:certify-city-agency:0.0.1",
+        "cred_def": "LDqVKMf7yVW7ZtcWgbxjgQ:3:CL:250491:default"
     },
     "manufacturer_schema_identifiers": {
-        "schema_id": "QqwuB4giWQkYGPyDXq6ZHm:2:certify-manufacturer:0.0.1",
-        "cred_def": "QqwuB4giWQkYGPyDXq6ZHm:3:CL:250394:default"
+        "schema_id": "LDqVKMf7yVW7ZtcWgbxjgQ:2:certify-manufacturer:0.0.1",
+        "cred_def": "LDqVKMf7yVW7ZtcWgbxjgQ:3:CL:250493:default"
     },
-    "authority_did": "QqwuB4giWQkYGPyDXq6ZHm"
+    "authority_did": "LDqVKMf7yVW7ZtcWgbxjgQ"
 }
