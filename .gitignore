@@ -9,3 +9,4 @@ build
 __pycache__/
 .vscode/
 manage_proxy.sh
+libs/identifiers.json
