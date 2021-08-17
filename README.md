@@ -94,4 +94,15 @@ There are two repositories that might help you take that next step, based on exp
 * Aries Full Stack React Starter: https://github.com/wip-abramson/aries-acapy-fullstack-starter
     * Want to build a full stack application with SSI capabilities. This might help you get started.
     
-One of the great things I have found with this playground is you can model the entire ecosystem you are focused on, test assumptions and validate usecases. Then you can focus on a single actor and implement a POC for a more realistic version of their application/interface. 
+One of the great things I have found with this playground is you can model the entire ecosystem you are focused on, test assumptions and validate usecases. Then you can focus on a single actor and implement a POC for a more realistic version of their application/interface.
+
+# Error Messages
+There is a chance you run into certain error messages. Here is a list of how to deal with a few of them: 
+
+### Error 1: Non-responsive agents
+In some cases, the agents fail to connect with one another. If too many connection requests are made, a `402` error appears in the Docker logs of one of the agents:
+```
+aries_cloudagent.transport.outbound.manager ERROR >>> Error when posting to: https://682ea719f54a.ngrok.io; Error: (<class 'aries_cloudagent.transport.outbound.base.OutboundTransportError'>, OutboundTransportError('Unexpected response status 402, caused by: Payment Required',), <traceback object at 0x7fe0d157d788>); Re-queue failed message ...
+```
+The error asks the user to provide Payment for the ngrok service. A solution is to stop the docker containers through `./manage.sh stop` and restarting them `./manage.sh start`.
+   

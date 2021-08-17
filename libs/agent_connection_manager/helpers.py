@@ -1,8 +1,8 @@
 from termcolor import colored
 
-COLOR_INFO = "yellow"
+COLOR_INFO = "blue"
 COLOR_ERROR = "red"
-COLOR_INPUT = "blue"
+COLOR_INPUT = "magenta"
 COLOR_SUCCESS = "green"
 
 def get_choice(input_text: str, no_text: str = None) -> bool:

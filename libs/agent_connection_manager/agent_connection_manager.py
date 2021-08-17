@@ -16,6 +16,7 @@ from typing import Optional
 
 from .connection import Connection
 from .helpers import *
+from .message import Message
 
 nest_asyncio.apply()
 
@@ -31,14 +32,8 @@ class AgentConnectionManager:
             {"topic": "basicmessages", "handler": self._messages_handler},
         ]
         self.connections: [Connection] = []
+        self.messages: [Message] = []
         self.role = None
-
-        # print(colored("Successfully initiated connection handler for ACA-PY agent", COLOR_SUCCESS, attrs=["bold"]))
-        # print(colored("Init AgentConnectionManager:", attrs=["bold"]))
-        # print("* Defines and registers agent listeners for {r}: ".format(r=role), listener_topics)
-        # print("* Stores initiated connections")
-        # print("* Allows to easily create and accept connection invitations")
-        # print("* Facilitates process of issuing, verifying, or proving verifiable credentials")
 
     def get_connection(self, connection_id: str):
         """
@@ -50,6 +45,55 @@ class AgentConnectionManager:
                 return connection
         return None
 
+    def get_message(self, message_id: str = None):
+        """
+        Get connection by connection_id
+        Returns: Print of message
+        """
+        # Get message ID if it was not provided
+        if message_id is None:
+            print(colored("Please enter Message ID :", COLOR_INPUT, attrs=["bold"]),
+                  colored("(Check agent.verify_inbox() if you do not know the message ID)", COLOR_INPUT))
+            message_id = input(colored("ID: ", COLOR_INPUT))
+
+        # Iterate through messages and print message with message_id
+        for message in self.messages:
+            if message.message_id == message_id:
+                print("\n---------------------------------------------------------------------")
+                print(colored("Message received", attrs=["bold"]))
+                print("Connection ID : ", message.connection_id)
+                print("Message ID : ", message.message_id)
+                print("State : ", message.state)
+                print("Time : ", message.sent_time)
+                print("Text : ", colored(message.content, COLOR_INFO))
+                print("---------------------------------------------------------------------")
+                break
+
+    def get_messages(self) -> list:
+        """
+        Returns: Get all messages of the agent
+        """
+        return self.messages
+
+    def verify_inbox(self) -> list:
+        """
+        Prints all available messages received, grouped by Connection ID
+        Returns: list of all message IDs
+        """
+        print("\n---------------------------------------------------------------------")
+        print(colored("Message Inbox", attrs=["bold"]))
+        if len(self.messages) == 0:
+            print("> Inbox empty")
+        else:
+            unique_c_ids = [m.connection_id for m in self.messages]
+            for c_id in set(unique_c_ids):
+                m_ids = [m.message_id for m in self.messages if m.connection_id == c_id]
+                print("> {count} Message(s) via Connection ID {cid}:".format(count=unique_c_ids.count(c_id), cid=c_id))
+                for m_id in m_ids:
+                    print("\t * Message ID : ", m_id)
+        print("---------------------------------------------------------------------")
+        return [m.message_id for m in self.messages]
+
     def get_role(self) -> str:
         return self.role
 
@@ -59,7 +103,7 @@ class AgentConnectionManager:
         """
         return self.agent_listeners
 
-    def get_connections(self):  # @todo: find out which return type this is!
+    def get_connections(self) -> list:
         """
         Returns: Get all connections of the agent
         """
@@ -77,7 +121,7 @@ class AgentConnectionManager:
         return credentials
 
     def create_connection_invitation(self, alias: str = None, auto_accept: bool = True, public: bool = False,
-                                     multi_use: bool = False) -> str:
+                                     multi_use: bool = False, auto_ping: bool = False) -> str:
         """
         Creates invitation by agent_controller, and prints the invitation that must be forwarded to an external agent.
         In case arguments are conservative (i.e., auto_accept = False), the function prompts the user to make
@@ -89,43 +133,39 @@ class AgentConnectionManager:
             multi_use: Use invitation for multiple invitees
 
         Returns: connection_id of invitation
-
         """
-        # Loop until new connection is created
+        # Loop until connection is created
         loop = asyncio.get_event_loop()
         invitation_response = loop.run_until_complete(
-            self.agent_controller.connections.create_invitation(alias, str(auto_accept).lower(), str(public).lower(),
-                                                                str(multi_use).lower())
+            self.agent_controller.connections.create_invitation(str(alias).lower(), str(auto_accept).lower(),
+                                                                str(public).lower(), str(multi_use).lower())
         )
 
-        # Get connection_id and store as new connection in agent's self.connections
+        # Get connection_id and store as new connection in self
         connection_id = invitation_response["connection_id"]
-        new_connection = Connection(connection_id)
+        new_connection = Connection(connection_id, auto_accept)
         self.connections.append(new_connection)
 
         # Print invitation to share it with an external agent
         invitation = invitation_response["invitation"]
         print(colored("\nCopy & paste invitation and share with external agent:", COLOR_INPUT, attrs=["bold"]))
         pprint(invitation)
+        print("\n")
 
-        # Either wait until agent automatically accepted the invitation response
         if auto_accept is True:
-            self._await_state("response")
-        # Or wait until external agent sent an invitation response, and the agent can manually accept it
+            self._await_state(connection_id, ["response", "request"])
+
         else:
-            self._await_state("request")
-            # Prompt user to accept invitation request response by external agent
+            self._await_state(connection_id, ["request"])
             choice = get_choice("Accept invitation request response by external agent?",
-                                "Please execute agent_controller.connections.accept_request(connection_id) to proceed")
+                                "Please execute agent_controller._accept_connection_invitation() to proceed")
             if choice is True:
                 self._accept_invitation_response(connection_id)
 
-        # Send trust ping to finalize the connection between two agents
-        self._trust_ping(connection_id)
-
+        self._trust_ping(connection_id, auto_ping)
         return connection_id
 
-    def _await_state(self, awaited_state: str) -> None:
+    def _await_state(self, connection_id: str, awaited_state: list) -> None:
         """
         Loop until an awaited state is reached
         Args:
@@ -135,14 +175,12 @@ class AgentConnectionManager:
 
         """
         state = None
-        while state != awaited_state:
+        while state not in awaited_state:
             loop = asyncio.get_event_loop()
             state_of_invite = loop.run_until_complete(
                 self.agent_controller.connections.get_connection(connection_id))
             state = state_of_invite["state"]
             time.sleep(3)  # Add time buffer to limit requests
-            print("waiting...")
-        # return @todo: check if this function is working!
 
     def receive_connection_invitation(self, alias: str = None, auto_accept: bool = True, label: str = None) -> str:
         """
@@ -212,7 +250,7 @@ class AgentConnectionManager:
             self.agent_controller.connections.accept_request(connection_id)
         )
 
-    def _trust_ping(self, connection_id: str) -> None:
+    def _trust_ping(self, connection_id: str, auto_ping: bool = False) -> None:
         """
         Send trust_ping to external agent to finalize the connection after sending an invitation
         Args:
@@ -223,12 +261,18 @@ class AgentConnectionManager:
         """
         # @TODO: see if there is some other auto_attribute that needs to be taken into consideration!
         # Prompt user to decide whether to sent a trust ping or not
-        choice = get_choice("Send trust ping to finalize connection?",
-                            no_text="Please execute agent_controller._trust_ping(connection_id) to finalize the connection")
-        if choice is True:
+        if auto_ping is False:
+            choice = get_choice("Send trust ping to finalize connection?",
+                                no_text="Please execute agent_controller._trust_ping(connection_id) to finalize the connection")
+            if choice is True:
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(
+                    self.agent_controller.messaging.trust_ping(connection_id, "Send trust ping")
+                )
+        else:
             loop = asyncio.get_event_loop()
             loop.run_until_complete(
-                self.agent_controller.messaging.trust_ping(connection_id, "send trust ping")
+                self.agent_controller.messaging.trust_ping(connection_id, "Send automated trust ping")
             )
 
     def send_message(self, connection_id: str, basic_message: str):
@@ -246,7 +290,7 @@ class AgentConnectionManager:
         message_response = loop.run_until_complete(
             self.agent_controller.messaging.send_message(connection_id, basic_message)
         )
-        print("supposedly sent message", message_response)
+        print("Sent message via Connection ID {cid}".format(cid=connection_id))
         # @todo: harmonize with message_handler!
 
     # Connection handlers
@@ -271,13 +315,9 @@ class AgentConnectionManager:
         if state == "active":
             print(colored("Connection ID: {0} is now active.".format(connection_id), COLOR_SUCCESS, attrs=["bold"]))
 
-    def _messages_handler(sefl, payload: TypeDict):
-        connection_id = payload["connection_id"]
-        print("\n---------------------------------------------------------------------")
-        print("Handle message", connection_id)
-        print(payload)
-        print("---------------------------------------------------------------------")
-        # @todo: harmonize with message function!
+    def _messages_handler(self, payload: TypeDict):
+        message = Message(payload)
+        self.messages.append(message)
 
 
 class RelyingParty(AgentConnectionManager):
@@ -351,22 +391,22 @@ class CredentialHolder(AgentConnectionManager):
         Verifies if a verifiable credential named vc is within the wallet of an agent_controller
         Storing a VC is done automatically if ACAPY_AUTO_STORE_CREDENTIAL=true in .env file
         Args:
-            vc: verifiable credential
+            vc: referent of verifiable credential
         Returns: -
         """
         credentials = self.get_credentials()
 
         # @todo: check if this is the correct way to filter with referent!
         if any(result["referent"] == vc for result in credentials["results"]):
-            print(colored("Credential {vc} is stored in wallet.".format(vc=vc), COLOR_SUCCESS, attrs=["bold"]))
+            print(colored("Credential {vc} is stored in wallet.".format(vc=vc), COLOR_SUCCESS))
             return True
         else:
             print(colored(
-                "Credential {vc} is not stored in wallet.".format(
-                    vc=vc), COLOR_ERROR, attrs=["bold"]))
+                "\nCredential {vc} is not stored in wallet.".format(
+                    vc=vc), COLOR_ERROR))
             return False
 
-    def request_vc(self, connection_id: str, schema_id: str, credential_id=None, role="prover", thread_id=None):
+    def request_vc(self, connection_id: str, schema_id: str, auto_request: bool=False, auto_store: bool = False, credential_id: str = None, thread_id=None):
         """
         Fetch offer made by issuer and request record
         Args:
@@ -391,46 +431,58 @@ class CredentialHolder(AgentConnectionManager):
             if record["schema_id"] == schema_id:
                 state = record["state"]
                 record_id = record["credential_exchange_id"]
-                print("Found record for {s} at state {state}".format(s=schema_id, state=state))
+                #print(colored("Found credential offer for {s} at state {state}".format(s=schema_id, state=state), COLOR_INFO))
                 break
 
         # Return if no suitable offered vc was found
         if state != "offer_received":
             return None
 
-        # send request for VC that was offered
-        loop = asyncio.get_event_loop()
-        await_record = loop.run_until_complete(
-            self.agent_controller.issuer.send_request_for_record(record_id)
-        )
+        if auto_request is False:
+            print(colored("\nRequest VC from offer"), COLOR_INPUT, attrs=["bold"])
+            choice = get_choice("Request VC", "VC will not be requested")
+        else:
+            choice = False
+
+        if (choice is True) or (auto_request is True):
+            # send request for VC that was offered
+            loop = asyncio.get_event_loop()
+            await_record = loop.run_until_complete(
+                self.agent_controller.issuer.send_request_for_record(record_id)
+            )
+
+        # Wait a little bit to see if handler sends message
+        time.sleep(3)
 
         # @todo: manage over holder_handler!
-        print(colored("Found credential with ID {i}".format(i=record_id), COLOR_SUCCESS))
-        print("Offer : ")
-        pprint(await_record["credential_proposal_dict"])
+        #print(colored("\nFound credential offer :".format(i=record_id), COLOR_INFO))
+        #pprint(await_record["credential_proposal_dict"])
 
         # Therefore: check if VC is stored, else ask if it should be stored.
         is_in_wallet = self.is_vc_in_wallet(record_id)
 
-        if is_in_wallet is False:
-            choice = get_choice("Do you want to store the VC with ID {i}".format(i=record_id),
-                                "Please store the VC by executing connections._store_vc()")
+        if (is_in_wallet is False) and (auto_store is True):
+            self._store_vc(record_id, credential_id)
+        elif is_in_wallet is False:
+            print(colored("\nDo you want to store the VC with ID {i}?".format(i=record_id), COLOR_INPUT, attrs=["bold"]))
+            choice = get_choice("Store VC: ", "Please store the VC by executing connections._store_vc()")
             if choice is True:
                 self._store_vc(record_id, credential_id)
 
     def _store_vc(self, record_id: str, credential_id=None):
 
         if credential_id is None:
+            print(colored("\nPlease provide a referent (Credential ID) for VC", COLOR_INPUT, attrs=["bold"]))
+            print(colored("(The referent acts as the identifier for retrieving the raw credential from the wallet)", COLOR_INPUT))
             credential_id = input(
-                colored("Please provide a Credential ID for VC with Record ID {r}".format(r=record_id), COLOR_INPUT))
-
+                colored("Referent: ".format(r=record_id), COLOR_INPUT))
         loop = asyncio.get_event_loop()
         store_cred_response = loop.run_until_complete(
             self.agent_controller.issuer.store_credential(record_id, credential_id)
         )
 
         # @todo: manage over holder_handler!
-        print(colored("Successfully stored credential (Credential ID: {c})".format(c=credential_id), COLOR_SUCCESS,
+        print(colored("\nSuccessfully stored credential (Credential ID: {c})".format(c=credential_id), COLOR_SUCCESS,
                       attrs=["bold"]))
 
     def _holder_handler(self, payload: TypeDict) -> None:
@@ -446,42 +498,25 @@ class CredentialHolder(AgentConnectionManager):
         exchange_id = payload['credential_exchange_id']
         state = payload['state']
         role = payload['role']
-        print("\n---------------------------------------------------\n")
-        print("Handle Issue Credential Webhook")
+        print("\n---------------------------------------------------------------------")
+        print(colored("Handle Issue Credential Webhook", attrs=["bold"]))
         print(f"Connection ID : {connection_id}")
         print(f"Credential exchange ID : {exchange_id}")
         print("Agent Protocol Role : ", role)
-        print("Protocol State : ", state)
-        print("\n---------------------------------------------------\n")
-        print("Handle Credential Webhook Payload")
-
+        print("Protocol State : ", colored(state, COLOR_INFO))
         if state == "offer_received":
-            print("Credential Offer Recieved")
-            proposal = payload["credential_proposal_dict"]
-            print(
-                "The proposal dictionary is likely how you would understand and display a credential offer in your application")
-            print("\n", proposal)
-            print("\n This includes the set of attributes you are being offered")
-            attributes = proposal['credential_proposal']['attributes']
-            print(attributes)
-            ## YOUR LOGIC HERE
-        elif state == "request_sent":
-            print(
-                "\nA credential request object contains the commitment to the agents master secret using the nonce from the offer")
-            ## YOUR LOGIC HERE
-        elif state == "credential_received":
-            print("Received Credential")
-            ## YOUR LOGIC HERE
+            proposal = payload["credential_proposal_dict"]["credential_proposal"]
+            print("Proposed Credential : ")
+            pprint(proposal)
+        print("---------------------------------------------------------------------")
+
+        if state == "request_sent":
+            print("REQUEST SENT")
         elif state == "credential_acked":
             ## YOUR LOGIC HERE
             credential = payload["credential"]
-            print("Credential Stored\n")
-            print(credential)
-
-            print("\nThe referent acts as the identifier for retrieving the raw credential from the wallet")
-            # Note: You would probably save this in your application database
-            credential_referent = credential["referent"]
-            print("Referent", credential_referent)
+            print(colored("\nReceived Credential :", attrs=["bold"]))
+            pprint(credential)
 
     def _prover_proof_handler(self, payload: TypeDict) -> None:
         """
@@ -588,8 +623,8 @@ class IssuingAuthority(AgentConnectionManager):
         reason = body[did_obj["did"]]["reason"]
 
         text_color = COLOR_SUCCESS if status == 200 else COLOR_ERROR
-        #print("Status : ", colored(status, text_color, attrs=["bold"]))
-        #print("Reason : ", reason)
+        # print("Status : ", colored(status, text_color, attrs=["bold"]))
+        # print("Reason : ", reason)
         print(colored(reason, text_color, attrs=["bold"]))
 
     def make_did_public(self, did_obj: dict) -> None:
@@ -615,25 +650,38 @@ class IssuingAuthority(AgentConnectionManager):
         Accept TAA agreement to be able to define schemes and issue VCs as an issuing authority
         Returns: -
         """
-        print("-------------------------------------- TRANSACTION AUTHOR AGREEMENT (TAA) --------------------------------------")
-        print(colored("\nSource: https://sovrin.org/preparing-for-the-sovrin-transaction-author-agreement/ (accessed Aug 16, 2021)", COLOR_INFO))
-        print("\n\"As a global public ledger, the Sovrin Ledger and all its participants are subject to privacy and data")
-        print("protection regulations such as the EU General Data Protection Regulation (GDPR). These regulations require")
+        print(
+            "-------------------------------------- TRANSACTION AUTHOR AGREEMENT (TAA) --------------------------------------")
+        print(colored(
+            "\nSource: https://sovrin.org/preparing-for-the-sovrin-transaction-author-agreement/ (accessed Aug 16, 2021)",
+            COLOR_INFO))
+        print(
+            "\n\"As a global public ledger, the Sovrin Ledger and all its participants are subject to privacy and data")
+        print(
+            "protection regulations such as the EU General Data Protection Regulation (GDPR). These regulations require")
         print("that the participants be explicit about responsibilities for Personal Data. ...")
-        print("\nTo clarify these responsibilities and provide protection for all parties, the Sovrin Governance Framework")
+        print(
+            "\nTo clarify these responsibilities and provide protection for all parties, the Sovrin Governance Framework")
         print("Working Group developed an agreement between Transaction Authors and the Sovrin Foundation. The TAA can")
-        print("be found at Sovrin.org. It ensures that users are aware of and consent to the fact that all data written")
-        print("to the Sovrin Ledger cannot be removed, even if the original author of the transaction requests its removal.")
-        print("\nThe TAA outlines the policies that users must follow when interacting with the Sovrin Ledger. When a user’s")
-        print("client software is preparing a transaction for submission to the network, it must include a demonstration that")
-        print("the user had the opportunity to review the current TAA and accept it. This is done by including some additional")
+        print(
+            "be found at Sovrin.org. It ensures that users are aware of and consent to the fact that all data written")
+        print(
+            "to the Sovrin Ledger cannot be removed, even if the original author of the transaction requests its removal.")
+        print(
+            "\nThe TAA outlines the policies that users must follow when interacting with the Sovrin Ledger. When a user’s")
+        print(
+            "client software is preparing a transaction for submission to the network, it must include a demonstration that")
+        print(
+            "the user had the opportunity to review the current TAA and accept it. This is done by including some additional")
         print("fields in the ledger write transaction:")
         print("\t* A hash of the agreement")
         print("\t* A date when the agreement was accepted, and")
         print("\t* A string indicating the user interaction that was followed to obtain the acceptance.")
-        print("\nThe Indy client API used by Sovrin has been extended to allow users to review current and past agreements and")
+        print(
+            "\nThe Indy client API used by Sovrin has been extended to allow users to review current and past agreements and")
         print("to indicate acceptance through an approved user interaction pattern.\"")
-        print("----------------------------------------------------------------------------------------------------------------")
+        print(
+            "----------------------------------------------------------------------------------------------------------------")
 
         choice = get_choice("Do you accept the TAA?", "You cannot proceed until you accept the TAA.")
         if choice is True:
@@ -700,8 +748,10 @@ class IssuingAuthority(AgentConnectionManager):
         cred_def_response = loop.run_until_complete(
             self.agent_controller.definitions.write_cred_def(schema_id, tag, support_revocation)
         )
-        #@todo: WRITE SOME SORT OF SUCCESS MESSAGE!
-        return cred_def_response["credential_definition_id"]
+
+        cred_def_id = cred_def_response["credential_definition_id"]
+        print(colored("Successfully wrote credential definition id: {cdef}".format(cdef=cred_def_id)))
+        return cred_def_id
 
     def offer_vc(self, connection_id: str, schema_id: str, cred_def_id: str, credential_attributes: list = None,
                  comment: str = None, auto_remove: bool = True, trace: bool = False) -> None:
@@ -732,8 +782,8 @@ class IssuingAuthority(AgentConnectionManager):
             # Loop data input until user is happy with the data
             happy = False
             while happy is False:
-                print(colored("Please enter the following information for the {n} scheme (ID: {id}): ".format(
-                    n=schema_info["schema"]['name'], id=schema_id), COLOR_INPUT, attrs=["bold"]))
+                print(colored("Please enter the following information for the {n} scheme: ".format(
+                    n=schema_info["schema"]['name']), COLOR_INPUT, attrs=["bold"]))
                 credential_attributes = []
                 for attr in attributes:
                     value = input(colored("{n}: ".format(n=attr), COLOR_INPUT))
@@ -768,17 +818,8 @@ class IssuingAuthority(AgentConnectionManager):
         print(f"Credential exchange ID : {exchange_id}")
         print("Agent Protocol Role : ", role)
         print("Protocol State : ", colored(state, COLOR_INFO))
-        print("---------------------------------------------------------------------")
-
         if state == "offer_sent":
-            proposal = payload["credential_proposal_dict"]
-            attributes = proposal['credential_proposal']['attributes']
-            print(f"Offering :")
-            pprint(attributes)
-            ## YOUR LOGIC HERE
-        elif state == "request_received":
-            print("Request for credential received")
-            ## YOUR LOGIC HERE
-        elif state == "credential_sent":
-            print("Credential Sent")
-            ## YOUR LOGIC HERE
+            offer = payload["credential_proposal_dict"]['credential_proposal']
+            print("Proposed Credential : ")
+            pprint(offer)
+        print("---------------------------------------------------------------------")
