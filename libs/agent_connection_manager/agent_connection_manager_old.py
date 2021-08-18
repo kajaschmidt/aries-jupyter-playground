@@ -1,3 +1,4 @@
+# stdlib
 import ast
 import asyncio
 import json
@@ -43,19 +44,6 @@ class AgentConnectionManager:
             if connection.connection_id == connection_id:
                 return connection
         return None
-
-    def get_connection_id(self, agent_name: str) -> list:
-        """
-        Returns list of connection IDs with a particular agent
-        Args:
-            agent_name:
-
-        Returns:
-
-        """
-        connection_ids = [c.connection_id for c in self.connections if c.connection_with == agent_name]
-        return connection_ids
-
 
     def get_message(self, message_id: str = None):
         """
@@ -121,14 +109,6 @@ class AgentConnectionManager:
         """
         return self.connections
 
-    def get_active_connections(self) -> list:
-        """
-        Get all connections where Connection.is_active = True
-        Returns: list of active connections
-
-        """
-        return [c for c in self.connections if c.is_active is True]
-
     def get_credentials(self):  # @todo: find out which return type this is!
         """
         Get all credentials that the agent controller has stored in their wallet
@@ -141,7 +121,7 @@ class AgentConnectionManager:
         return credentials
 
     def create_connection_invitation(self, alias: str = None, auto_accept: bool = True, public: bool = False,
-                                     multi_use: bool = False, auto_ping: bool = True):
+                                     multi_use: bool = False, auto_ping: bool = True) -> str:
         """
         Creates invitation by agent_controller, and prints the invitation that must be forwarded to an external agent.
         In case arguments are conservative (i.e., auto_accept = False), the function prompts the user to make
@@ -151,6 +131,7 @@ class AgentConnectionManager:
             auto_accept: auto-accept the responses sent by the external agent
             public: Use public DID
             multi_use: Use invitation for multiple invitees
+
         Returns: connection_id of invitation
         """
         # Loop until connection is created
@@ -162,33 +143,38 @@ class AgentConnectionManager:
 
         # Get connection_id and store as new connection in self
         connection_id = invitation_response["connection_id"]
-        if connection_id in [c.connection_id for c in self.connections]:
-            conn = self.get_connection(connection_id)
-            conn.auto_accept = auto_accept
-            conn.auto_ping = auto_ping
-            conn.alias = alias
-        else:
-            conn = Connection(connection_id, auto_accept=auto_accept, auto_ping=auto_ping, alias=alias)
-            self.connections.append(conn)
+        new_connection = Connection(connection_id, auto_accept=auto_accept, auto_ping=auto_ping, alias=alias)
+        self.connections.append(new_connection)
 
         # Print invitation to share it with an external agent
         invitation = invitation_response["invitation"]
         print(colored("\nCopy & paste invitation and share with external agent:", COLOR_INPUT, attrs=["bold"]))
         pprint(invitation)
+        print("\n")
 
-        # Return whole invitation if multi_use is true (to be able to store it)
-        if multi_use is True:
-            return invitation
-        # Return only connection_id (as there is only one when multi_use is false)
+        """
+        if auto_accept is True:
+            self._await_state(connection_id, ["response", "request"])
+
         else:
-            return connection_id
+            self._await_state(connection_id, ["request"])
+            choice = get_choice("Accept invitation request response by external agent?",
+                                "Please execute agent_controller._accept_connection_invitation() to proceed")
+            if choice is True:
+                self._accept_invitation_response(connection_id)
+
+        self._trust_ping(connection_id, auto_ping)
+        """
+        return connection_id
 
     def _await_state(self, connection_id: str, awaited_state: list) -> None:
         """
         Loop until an awaited state is reached
         Args:
             awaited_state: state at which the while loop breaks
+
         Returns: (bool) True if awaited state is reached
+
         """
         state = None
         while state not in awaited_state:
@@ -196,17 +182,18 @@ class AgentConnectionManager:
             state_of_invite = loop.run_until_complete(
                 self.agent_controller.connections.get_connection(connection_id))
             state = state_of_invite["state"]
-            print(state)
-            time.sleep(8)  # Add time buffer to limit requests
+            #time.sleep(3)  # Add time buffer to limit requests
 
-    def receive_connection_invitation(self, alias: str = None, auto_accept: bool = True, auto_ping: bool = True, label: str = None) -> str:
+    def receive_connection_invitation(self, alias: str = None, auto_accept: bool = True, label: str = None) -> str:
         """
         Function to respond to a connection invitation received by an external agent
         Args:
             alias: name for the connection @todo: verify!
             auto_accept: Automatically accept the reponse by the inviting external agent
             label: @todo: verify!
+
         Returns: connection_id of connection (as string)
+
         """
         # Ask user to paste invitation from external agent
         print(colored("Please enter invitation received by external agent.", COLOR_INPUT, attrs=["bold"]))
@@ -221,49 +208,57 @@ class AgentConnectionManager:
 
         # Get connection_id and store as a new connection in self
         connection_id = invitation_response["connection_id"]
-        if connection_id in [c.connection_id for c in self.connections]:
-            conn = self.get_connection(connection_id)
-            conn.auto_accept = auto_accept
-            conn.auto_ping = auto_ping
-            conn.alias = alias
-        else:
-            conn = Connection(connection_id, auto_accept=auto_accept, auto_ping=auto_ping, alias=alias)
-            self.connections.append(conn)
+        new_connection = Connection(connection_id, auto_accept=auto_accept, alias=alias)
+        self.connections.append(new_connection)
 
-        # Ask user to accept invitation if auto_accept is set to False
-        self._accept_connection_invitation(connection_id, auto_accept=auto_accept)
+        self._accept_connection_invitation(connection_id, auto_accept)
 
         return connection_id
 
-    def _accept_connection_invitation(self, connection_id: str, auto_accept: bool = True, label: str = None, endpoint=None) -> None:
+    def _accept_connection_invitation(self, connection_id: str, auto_accept: bool, label: str = None, endpoint=None) -> None:
         """
         Accept the connection invitation sent by an external agent
         Args:
             connection_id: connection id of invitation
             label: @todo: find out!
             endpoint: @todo: find out!
+
         Returns: -
+
         """
-        if auto_accept is False:
+
+        if auto_accept is True:
+            # Loop until connection invitation is received
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(
+                self.agent_controller.connections.accept_invitation(connection_id, label, endpoint)
+            )
+        # Ask user to accept invitation if auto_accept is set to False
+        else:
             choice = get_choice("Accept invitation {c}?".format(c=connection_id),
                                 no_text="Please execute agent_controller.connections.accept_invitation(connection_id) to proceed")
             if choice is True:
-                # Loop until connection invitation is received
                 loop = asyncio.get_event_loop()
                 loop.run_until_complete(
                     self.agent_controller.connections.accept_invitation(connection_id, label, endpoint)
                 )
 
-    def _accept_invitation_response(self, connection_id: str, auto_accept: bool = True) -> None:
+    def _accept_invitation_response(self, connection_id: str, auto_accept: bool = False) -> None:
         """
         Accept the response sent by an external agent (usually through _accept_conneciton_invitation) as a result of an invitation sent by the self.agent_controller
         Args:
             connection_id: connection id of the invitation sent
+
         Returns: -
         """
-        # Do nothing if auto_accept is True (agent does it automatically)
-        # If auto_accept is False, prompt user to accept request
-        if auto_accept is False:
+
+        if auto_accept is True:
+            # Loop until connection invitation is received
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(
+                self.agent_controller.connections.accept_request(connection_id)
+            )
+        else:
             choice = get_choice("Accept invitation request response by external agent?",
                                 "Please execute agent_controller._accept_connection_invitation() to proceed")
             if choice is True:
@@ -273,16 +268,25 @@ class AgentConnectionManager:
                     self.agent_controller.connections.accept_request(connection_id)
                 )
 
+
+
     def _trust_ping(self, connection_id: str, auto_ping: bool = True) -> None:
         """
         Send trust_ping to external agent to finalize the connection after sending an invitation
         Args:
             connection_id:
+
         Returns:
+
         """
         # @TODO: see if there is some other auto_attribute that needs to be taken into consideration!
         # Prompt user to decide whether to sent a trust ping or not
-        if auto_ping is False:
+        if auto_ping is True:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(
+                self.agent_controller.messaging.trust_ping(connection_id, "Send automated trust ping")
+            )
+        else:
             choice = get_choice("Send trust ping to finalize connection?",
                                 no_text="Please execute agent_controller._trust_ping(connection_id) to finalize the connection")
             if choice is True:
@@ -290,39 +294,6 @@ class AgentConnectionManager:
                 loop.run_until_complete(
                     self.agent_controller.messaging.trust_ping(connection_id, "Send trust ping")
                 )
-        else:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(
-                self.agent_controller.messaging.trust_ping(connection_id, "Send automated trust ping")
-            )
-
-    def _accept_invitation_request(self, connection_id: str, auto_accept: bool):
-        """
-        @todo describe
-        Args:
-            connection_id:
-            auto_accept:
-
-        Returns:
-        """
-        # Do nothing if auto_accept is True (agent does it automatically)
-        # If auto_accept is False, prompt user to accept request
-        if auto_accept is False:
-            #print(colored("Accept invitation request?", COLOR_INPUT))
-            #choice = input("Please respond [yes/no] ")
-            #choice = True if choice == "yes" else False
-           #
-           # #choice = get_choice("Accept invitation request?", "Did not accept invitation request.")
-           # if choice is True:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(
-                self.agent_controller.connections.accept_request(connection_id)
-            )
-        #else:
-        #    loop = asyncio.get_event_loop()
-        #    loop.run_until_complete(
-        #        self.agent_controller.connections.accept_request(connection_id)
-        #    )
 
     def send_message(self, connection_id: str, basic_message: str):
         """
@@ -330,7 +301,9 @@ class AgentConnectionManager:
         Args:
             connection_id: id of connection over which to send a message
             basic_message: message to be sent via conneciton with connection_id
+
         Returns: -
+
         """
         # Loop until connection invitation is received
         loop = asyncio.get_event_loop()
@@ -349,38 +322,48 @@ class AgentConnectionManager:
         routing_state = payload["routing_state"]
         rfc_state = payload["rfc23_state"]
 
-        # Register new connection_id if it does not yet exist
-        if connection_id in [c.connection_id for c in self.connections]:
-            conn = self.get_connection(connection_id)
-            try: conn.alias = payload["alias"]
-            except: pass
-        else:
-            conn = Connection(connection_id)
-            try: conn.alias = payload["alias"]
-            except: pass
-            self.connections.append(conn)
-
         print("\n---------------------------------------------------------------------")
         print(colored("Connection Webhook Event Received", attrs=["bold"]))
         print("Connection ID : ", connection_id)
         print("State : ", colored("{s} ({r})".format(s=state, r=rfc_state), COLOR_INFO))
         print("Routing State : {routing}".format(routing=routing_state))
         if 'their_label' in payload:
-            their_label = payload['their_label']
-            print(f"Connection with : ", their_label)
-            conn.connection_with = their_label
+            print(f"Connection with : ", payload['their_label'])
         print("Their Role : ", their_role)
         print("---------------------------------------------------------------------")
 
+        try:
+            connection = self.get_connection(connection_id)
+
+        except Exception as e:
+            print(colored("Failed to get connection ", COLOR_ERROR), e)
+            connection = Connection(connection_id)
+            self.connections.append(connection)
+            print("FIXED BY ADDING NEW CONNECTION")
+
+        if rfc_state == "request-received":
+            try:
+                if connection.is_active is False:
+                    try:
+                        self._accept_invitation_response(connection_id, connection.auto_accept)
+                    except:
+                        self._accept_invitation_response(connection_id, True)
+            except:
+                print("No connection.is_active found at auto_accept")
+
+        if rfc_state == "response-received":
+            try:
+                if connection.is_active is False:
+                    try:
+                        self._trust_ping(connection_id, connection.auto_ping)
+                    except:
+                        self._trust_ping(connection_id, True)
+            except:
+                print("No connection.is_active found at ping")
+
         if state == "active":
-            conn.is_active = True
-            print(colored("\nConnection ID: {0} is now active.".format(connection_id), COLOR_SUCCESS, attrs=["bold"]))
-        elif rfc_state == "invitation-received":
-            self._accept_invitation_response(connection_id, conn.auto_accept)
-        elif rfc_state == "response-received":
-            self._trust_ping(connection_id, conn.auto_ping)
-        elif rfc_state == "request-received":
-            self._accept_invitation_request(connection_id, conn.auto_accept)
+            connection.is_active = True
+            print(colored("Connection ID: {0} is now active.".format(connection_id), COLOR_SUCCESS, attrs=["bold"]))
 
     def _messages_handler(self, payload: TypeDict):
         message = Message(payload)
@@ -399,21 +382,6 @@ class RelyingParty(AgentConnectionManager):
         print(
             colored("Successfully initiated AgentConnectionManager for a(n) {role} ACA-PY agent".format(role=self.role),
                     COLOR_SUCCESS, attrs=["bold"]))
-
-    def send_proof_request(self, proof_request: dict) -> None:
-        """
-        @todo
-        Args:
-            proof_request:
-
-        Returns:
-
-        """
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(
-            agent_controller.proofs.send_request(proof_request)
-        )
-
 
     def _relying_party_proof_handler(self, payload: TypeDict):
         """
@@ -497,7 +465,9 @@ class CredentialHolder(AgentConnectionManager):
             state: state denoting an offer was received
             role: role of the agent
             thread_id: @todo: find out!
+
         Returns:
+
         """
 
         # Get all records to find the offer made by the external agent
@@ -567,7 +537,9 @@ class CredentialHolder(AgentConnectionManager):
         @todo: fill out!
         Args:
             payload:
+
         Returns:
+
         """
         connection_id = payload['connection_id']
         exchange_id = payload['credential_exchange_id']
@@ -579,15 +551,13 @@ class CredentialHolder(AgentConnectionManager):
         print(f"Credential exchange ID : {exchange_id}")
         print("Agent Protocol Role : ", role)
         print("Protocol State : ", colored(state, COLOR_INFO))
+        print("---------------------------------------------------------------------")
         if state == "offer_received":
             proposal = payload["credential_proposal_dict"]["credential_proposal"]
-            print("Proposed Credential : ")
+            print(colored("Proposed Credential : "), attrs=["bold"])
             pprint(proposal)
-        print("---------------------------------------------------------------------")
 
-        if state == "request_sent":
-            print("REQUEST SENT")
-        elif state == "credential_acked":
+        if state == "credential_acked":
             ## YOUR LOGIC HERE
             credential = payload["credential"]
             print(colored("\nReceived Credential :", attrs=["bold"]))
@@ -598,7 +568,9 @@ class CredentialHolder(AgentConnectionManager):
         @todo: fill out!
         Args:
             payload:
+
         Returns:
+
         """
         role = payload["role"]
         connection_id = payload["connection_id"]
@@ -678,7 +650,9 @@ class IssuingAuthority(AgentConnectionManager):
         Args:
             url: @todo: check!
             network: @todo: check!
+
         Returns: -
+
         """
         # Variables
         payload = {"network": network, "did": did_obj["did"], "verkey": did_obj["verkey"], "paymentaddr": ""}
@@ -703,6 +677,7 @@ class IssuingAuthority(AgentConnectionManager):
         Assign agent with a public DID if it is not already set as public (can be the case if the containers were not properly shut down)
         Args:
             did_obj: dictionary with DID information of an agent
+
         Returns: -
         """
         if did_obj["posture"] != "public":
@@ -782,7 +757,9 @@ class IssuingAuthority(AgentConnectionManager):
             schema_name: name of the schema
             schema_version: version of the schema
             attributes: list of attributes that are part of the schema
+
         Returns: schema_id
+
         """
         # Write schema and await response
         try:
@@ -808,7 +785,9 @@ class IssuingAuthority(AgentConnectionManager):
             schema_id: id of schema
             tag: @todo: find out!
             support_revocation: make credential definition support revokation. requires ACAPY_TAILS_SERVER_BASE_URL env variable to be properly configured
+
         Returns: credential definition id as string
+
         """
         loop = asyncio.get_event_loop()
         cred_def_response = loop.run_until_complete(
@@ -869,7 +848,9 @@ class IssuingAuthority(AgentConnectionManager):
         Handles the payload for the Issuing Authority when issuing a verifiable credential
         Args:
             payload: @todo: find out!
+
         Returns: -
+
         """
         connection_id = payload['connection_id']
         exchange_id = payload['credential_exchange_id']
@@ -882,8 +863,8 @@ class IssuingAuthority(AgentConnectionManager):
         print(f"Credential exchange ID : {exchange_id}")
         print("Agent Protocol Role : ", role)
         print("Protocol State : ", colored(state, COLOR_INFO))
+        print("---------------------------------------------------------------------")
         if state == "offer_sent":
             offer = payload["credential_proposal_dict"]['credential_proposal']
-            print("Proposed Credential : ")
+            print(colored("Proposed Credential : "), attrs=["bold"])
             pprint(offer)
-        print("---------------------------------------------------------------------")
