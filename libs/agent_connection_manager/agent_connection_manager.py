@@ -318,11 +318,6 @@ class AgentConnectionManager:
             loop.run_until_complete(
                 self.agent_controller.connections.accept_request(connection_id)
             )
-        #else:
-        #    loop = asyncio.get_event_loop()
-        #    loop.run_until_complete(
-        #        self.agent_controller.connections.accept_request(connection_id)
-        #    )
 
     def send_message(self, connection_id: str, basic_message: str):
         """
@@ -361,7 +356,7 @@ class AgentConnectionManager:
             self.connections.append(conn)
 
         print("\n---------------------------------------------------------------------")
-        print(colored("Connection Webhook Event Received", attrs=["bold"]))
+        print(colored("Connection Webhook Event Received: Connections Handler", attrs=["bold"]))
         print("Connection ID : ", connection_id)
         print("State : ", colored("{s} ({r})".format(s=state, r=rfc_state), COLOR_INFO))
         print("Routing State : {routing}".format(routing=routing_state))
@@ -400,7 +395,7 @@ class RelyingParty(AgentConnectionManager):
             colored("Successfully initiated AgentConnectionManager for a(n) {role} ACA-PY agent".format(role=self.role),
                     COLOR_SUCCESS, attrs=["bold"]))
 
-    def send_proof_request(self, proof_request: dict) -> None:
+    def send_proof_request(self, connection_id: str, proof_request: dict, comment: str) -> None:
         """
         @todo
         Args:
@@ -409,11 +404,54 @@ class RelyingParty(AgentConnectionManager):
         Returns:
 
         """
+
+        whole_request = {
+            "comment": comment,
+            "connection_id": connection_id,
+            "proof_request": proof_request,
+            "trace": False
+        }
+
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(
-            agent_controller.proofs.send_request(proof_request)
+        proof_req_response = loop.run_until_complete(
+            self.agent_controller.proofs.send_request(whole_request)
         )
 
+        return proof_req_response["presentation_exchange_id"]
+
+    def verify_proof_presentation(self, presentation_exchange_id):
+        loop = asyncio.get_event_loop()
+        verified_response = loop.run_until_complete(
+            self.agent_controller.proofs.verify_presentation(presentation_exchange_id)
+        )
+
+        # Note: Verifying a presentation moves the state to `verified` regardless of whether the presentation request has been satisfied. To check this you must refer to the `verified` property on the response.
+        print("\n---------------------------------------------------------------------")
+        print(colored("Presentation Exchange ID {pei}".format(pei=presentation_exchange_id), attrs=["bold"]))
+
+        # Print verified status
+        verified = bool(verified_response["verified"])
+        verified_color = COLOR_SUCCESS if verified is True else COLOR_ERROR
+        print("Presentation valid : ", colored(verified, verified_color))
+
+        # Parse revealed attributes
+        print("Revealed Attributes : ")
+        for (name, val) in verified_response['presentation']['requested_proof']['revealed_attrs'].items():
+            attr_name = verified_response["presentation_request"]["requested_attributes"][name]["name"]
+            print("\t* {a} = {r}".format(a=attr_name, r=val['raw']))
+
+        # Parse self-attested attributes
+        print("Self-Attested Attributes : ")
+        for (name, val) in verified_response['presentation']['requested_proof']['self_attested_attrs'].items():
+            print("\t* {n} = {v}".format(n=name, v=val))
+
+        # Parse predicate attributes
+        print("Predicate Attributes : ")
+        for (name, val) in verified_response['presentation']['requested_proof']['predicates'].items():
+            print("\t* {n} = {v}".format(n=name, v=val))
+        print("---------------------------------------------------------------------")
+
+        return verified
 
     def _relying_party_proof_handler(self, payload: TypeDict):
         """
@@ -430,7 +468,7 @@ class RelyingParty(AgentConnectionManager):
         state = payload["state"]
 
         print("\n---------------------------------------------------------------------")
-        print(colored("Connection Webhook Event Received", attrs=["bold"]))
+        print(colored("Connection Webhook Event Received: Present-Proof Handler", attrs=["bold"]))
         print("Connection ID : ", connection_id)
         print("Presentation Exchange ID : ", pres_ex_id)
         print("Protocol State : ", colored("{s}".format(s=state), COLOR_INFO))
@@ -438,22 +476,17 @@ class RelyingParty(AgentConnectionManager):
         print("Initiator : ", payload["initiator"])
         print("---------------------------------------------------------------------")
 
-        if state == "request_sent":
-            print("Presentation Request\n")
-            print(payload["presentation_request"])
-            print("\nThe presentation request is encoded in base64 and packaged into a DIDComm Message\n")
-            print(payload["presentation_request_dict"])
-            print("\nNote the type defines the protocol present-proof and the message request-presentation\n")
-            print(payload["presentation_request_dict"]["@type"])
-        elif state == "presentation_received":
-            print("Presentation Received")
-            # print("We will not go into detail on this payload as it is comparable to the presentation_sent we looked at in the earlier cell.")
-            print("This is the full payload\n")
-            print(payload)
-        else:
-            print("Payload \n")
-            print(payload)
+        # Store presentation_exchange_id to connection
+        conn = self.get_connection(connection_id)
+        if pres_ex_id not in conn.presentation_exchange_ids:
+            conn.presentation_exchange_ids.append(pres_ex_id)
 
+        if state == "request_sent":
+            print(colored("Presentation Request : ", attrs=["bold"]))
+            pprint(payload["presentation_request_dict"])
+
+        elif state == "verified":
+            print(colored(""))
 
 class CredentialHolder(AgentConnectionManager):
     def __init__(
@@ -562,6 +595,99 @@ class CredentialHolder(AgentConnectionManager):
         print(colored("\nSuccessfully stored credential (Credential ID: {c})".format(c=credential_id), COLOR_SUCCESS,
                       attrs=["bold"]))
 
+    def prepare_presentation(self, connection_id: str, thread_id: str = None, state: str = "request_received", role: str = "prover"):
+
+        # Find all presentation records that were sent to you
+        loop = asyncio.get_event_loop()
+        proof_records_response = loop.run_until_complete(
+            self.agent_controller.proofs.get_records(connection_id, thread_id, state, role)
+        )
+
+        # Get most recent presentation_exchange_id and the corresponding proof_request
+        conn = self.get_connection(connection_id)
+        presentation_exchange_id = conn.presentation_exchange_ids[-1]
+        proof_request = [p for p in proof_records_response["results"] if p["presentation_exchange_id"] == presentation_exchange_id][0]
+        print(colored("> Found proof_request with presentation_exchange_id {pei}".format(pei=presentation_exchange_id), COLOR_INFO))
+
+        # Get requirements from proof_request
+        requirements = self._get_proof_request_requirements(proof_request)
+        print(colored("> Restrictions for a suitable proof: {r}".format(r=requirements), COLOR_INFO))
+
+        # Compare all VCs in the wallet of the CredentialHolder, and check if one of them satisfies the requirements of the proof_request
+        loop = asyncio.get_event_loop()
+        credentials = loop.run_until_complete(self.agent_controller.credentials.get_all())
+        suitable_credentials, revealed = self._get_suitable_credentials(credentials, requirements)
+
+        # Prepare presentation that will be sent to the RelyingParty
+        predicates = {}
+        self_attested = {}
+        presentation = {
+            "requested_predicates": predicates,
+            "requested_attributes": revealed,
+            "self_attested_attributes": self_attested,
+        }
+        print(colored("> Generate the proof presentation", COLOR_INFO))
+
+        return presentation, presentation_exchange_id
+
+    def send_proof_presentation(self, presentation_exchange_id, presentation):
+        loop = asyncio.get_event_loop()
+        credentials = loop.run_until_complete(
+            self.agent_controller.proofs.send_presentation(presentation_exchange_id, presentation)
+        )
+
+    def _get_proof_request_requirements(self, presentation_record: dict) -> dict:
+        """
+        Returns dictionary with {<required-attribute>: <restrictions-of-attribute>} from presentation record
+        """
+        # Setup
+        requirements = {}
+        presentation_request = presentation_record["presentation_request"]
+
+        # Get required attributes and requirements for the individual attributes
+        for attr_key, attr_val in presentation_request["requested_attributes"].items():
+            requirements[attr_val["name"]] = {}
+            requirements[attr_val["name"]]["requirements"] = attr_val["restrictions"][0]
+            requirements[attr_val["name"]]["request_attr_name"] = attr_key
+
+        return requirements
+    
+    def _get_suitable_credentials(self, credentials_all, requirements):
+        """
+        Finds credentials in credentials_all that satisfy the requirements provided by the relying party.
+        Returns dictionary with: {<attribute-name>: <suitable-credential>}, where the suitable-credential satisfies all requirements 
+        """
+        # Setup
+        relevant_credentials = {}
+        revealed = {}
+        credentials = credentials_all["results"]
+        
+        # Iterate through attribute name and attribute requirements of relying party
+        for name, conditions in requirements.items():
+            
+            req = conditions["requirements"]
+            req_name = conditions["request_attr_name"]
+            
+            # Break if the required attribute name is not in any credential, or if all requirements (e.g., schema_id) are not within one credential
+            if (any(name in cred["attrs"] for cred in credentials) is False) or (any(r in cred.keys() for r in req for cred in credentials) is False):
+                continue
+    
+            # Iterate through credentials
+            for cred in credentials:
+    
+                # Verify if requirement value (r_val) and credential value (cred[r_key]) match for required attribute (r_key)
+                for r_key, r_val in req.items():
+                    try:
+                        # Append cred to relevant_credentials if all requirements match
+                        if (cred[r_key] == r_val) is True:
+                            relevant_credentials[name] = cred
+                            print(colored("> Attribute request for '{name}' can be satisfied by Credential with VC '{c}'".format(name=name, c=cred["referent"]), COLOR_INFO))
+                            revealed[req_name] = {"cred_id": cred["referent"], "revealed": True}
+                    except:
+                        pass
+    
+        return relevant_credentials, revealed
+
     def _holder_handler(self, payload: TypeDict) -> None:
         """
         @todo: fill out!
@@ -574,7 +700,7 @@ class CredentialHolder(AgentConnectionManager):
         state = payload['state']
         role = payload['role']
         print("\n---------------------------------------------------------------------")
-        print(colored("Handle Issue Credential Webhook", attrs=["bold"]))
+        print(colored("Handle Issue Credential Webhook: Issue Credential Handler", attrs=["bold"]))
         print(f"Connection ID : {connection_id}")
         print(f"Credential exchange ID : {exchange_id}")
         print("Agent Protocol Role : ", role)
@@ -604,25 +730,30 @@ class CredentialHolder(AgentConnectionManager):
         connection_id = payload["connection_id"]
         pres_ex_id = payload["presentation_exchange_id"]
         state = payload["state"]
+
         print("\n---------------------------------------------------------------------")
-        print(colored("Handle present-proof", attrs=["bold"]))
+        print(colored("Connection Webhook Event Received: Present-Proof Handler", attrs=["bold"]))
         print("Connection ID : ", connection_id)
         print("Presentation Exchange ID : ", pres_ex_id)
-        print("Protocol State : ", state)
+        print("Protocol State : ", colored(state, COLOR_INFO))
         print("Agent Role : ", role)
         print("Initiator : ", payload["initiator"])
         print("---------------------------------------------------------------------")
 
+        # Store presentation_exchange_id to connection
+        conn = self.get_connection(connection_id)
+        if pres_ex_id not in conn.presentation_exchange_ids:
+            conn.presentation_exchange_ids.append(pres_ex_id)
+
         if state == "request_received":
-            presentation_request = payload["presentation_request"]
-            print("Recieved Presentation Request\n")
-            print("\nRequested Attributes - Note the restrictions. These limit the credentials we could respond with\n")
-            print(presentation_request["requested_attributes"])
-        elif state == "presentation_sent":
-            print("Presentation sent\n")
+            print(colored("Obtained Proof Request : ", attrs=["bold"]))
+            pprint(payload["presentation_request"])
+
+        #elif state == "presentation_sent":
+        #    print("Presentation sent\n")
 
         elif state == "presentation_acked":
-            print("Presentation has been acknowledged by the Issuer")
+            print(colored("\nPresentation has been acknowledged by the Issuer", COLOR_SUCCESS, attrs=["bold"]))
 
 
 class IssuingAuthority(AgentConnectionManager):
@@ -877,7 +1008,7 @@ class IssuingAuthority(AgentConnectionManager):
         role = payload['role']
 
         print("\n---------------------------------------------------------------------")
-        print(colored("Handle Issue Credential Webhook", attrs=["bold"]))
+        print(colored("Handle Issue Credential Webhook: Issue Credential Handler", attrs=["bold"]))
         print(f"Connection ID : {connection_id}")
         print(f"Credential exchange ID : {exchange_id}")
         print("Agent Protocol Role : ", role)
