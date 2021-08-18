@@ -10,3 +10,5 @@ __pycache__/
 .vscode/
 manage_proxy.sh
 libs/identifiers.json
+agents/*/notebooks/libs/
+

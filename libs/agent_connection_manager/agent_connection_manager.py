@@ -454,10 +454,6 @@ class CredentialHolder(AgentConnectionManager):
         # Wait a little bit to see if handler sends message
         time.sleep(3)
 
-        # @todo: manage over holder_handler!
-        #print(colored("\nFound credential offer :".format(i=record_id), COLOR_INFO))
-        #pprint(await_record["credential_proposal_dict"])
-
         # Therefore: check if VC is stored, else ask if it should be stored.
         is_in_wallet = self.is_vc_in_wallet(record_id)
 

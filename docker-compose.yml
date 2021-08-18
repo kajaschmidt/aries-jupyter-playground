@@ -92,14 +92,154 @@ services:
       - duet-domain
     volumes:
       - ./agents/manufacturer1/notebooks:/workspace
-      - ./recipes:/workspace/recipes
+      #- ./recipes:/workspace/recipes
       - ./libs:/workspace/libs
-      - ./SyMPC/examples:/workspace/sympc-examples
+      #- ./SyMPC/examples:/workspace/sympc-examples
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
       - 8889:8888
       # WEBHOOK_PORT
       - 4010:3010
+
+  manufacturer2-wallet-db:
+    image: postgres:11
+    container_name: manufacturer2-wallet-db
+    command: postgres -c listen_addresses='*'
+    # env file defines
+    env_file:
+      - agents/manufacturer2/.env
+    # This creates the data base tables if not present. See resources/init.sql #
+    volumes:
+      - ./resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - manufacturer2-domain
+    tty: true
+  #### ngrok
+  # Use if wish to expose agent to public. E.g. so mobile wallets can access #
+  ngrok-manufacturer2:
+    image: wernight/ngrok
+    container_name: ngrok-manufacturer2
+    env_file:
+      - agents/manufacturer2/.env
+    ## You must make sure this points to your agent service. e.g. manufacturer2-agent:HTTP_PORT
+    command: ngrok http manufacturer2-agent:3020 --log stdout
+    networks:
+      - manufacturer2-domain
+  ### agent
+  # This is manufacturer2's ACA-Py instance
+  # See dockerfiles/Dockerfile.agent
+  manufacturer2-agent:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.agent
+    container_name: manufacturer2-agent
+    env_file:
+      - agents/manufacturer2/.env
+    ## These map from ports defined in the .env file to unique ports on your machine
+    ## YOUR_MACHINE:DOCKER_SERVICE
+    ports:
+      # HTTP_PORT
+      - 4022:3020
+      # ADMIN_PORT
+      - 4023:3021
+    depends_on:
+      - manufacturer2-wallet-db
+    networks:
+      - manufacturer2-domain
+  ### business-logic
+  manufacturer2-business-logic:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.controller
+    container_name: manufacturer2-business-logic
+    env_file:
+      - agents/manufacturer2/.env
+    depends_on:
+      - manufacturer2-agent
+      #- duet-base
+    networks:
+      - manufacturer2-domain
+      - duet-domain
+    volumes:
+      - ./agents/manufacturer2/notebooks:/workspace
+      #- ./recipes:/workspace/recipes
+      - ./libs:/workspace/libs
+      #- ./SyMPC/examples:/workspace/sympc-examples
+    ports:
+      # Jupyter Notebook port - always map from 8888 to any available port
+      - 8891:8888
+      # WEBHOOK_PORT
+      - 4011:3010
+
+  manufacturer3-wallet-db:
+    image: postgres:11
+    container_name: manufacturer3-wallet-db
+    command: postgres -c listen_addresses='*'
+    # env file defines
+    env_file:
+      - agents/manufacturer3/.env
+    # This creates the data base tables if not present. See resources/init.sql #
+    volumes:
+      - ./resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - manufacturer3-domain
+    tty: true
+  #### ngrok
+  # Use if wish to expose agent to public. E.g. so mobile wallets can access #
+  ngrok-manufacturer3:
+    image: wernight/ngrok
+    container_name: ngrok-manufacturer3
+    env_file:
+      - agents/manufacturer3/.env
+    ## You must make sure this points to your agent service. e.g. manufacturer3-agent:HTTP_PORT
+    command: ngrok http manufacturer3-agent:3020 --log stdout
+    networks:
+      - manufacturer3-domain
+  ### agent
+  # This is manufacturer3's ACA-Py instance
+  # See dockerfiles/Dockerfile.agent
+  manufacturer3-agent:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.agent
+    container_name: manufacturer3-agent
+    env_file:
+      - agents/manufacturer3/.env
+    ## These map from ports defined in the .env file to unique ports on your machine
+    ## YOUR_MACHINE:DOCKER_SERVICE
+    ports:
+      # HTTP_PORT
+      - 4024:3020
+      # ADMIN_PORT
+      - 4025:3021
+    depends_on:
+      - manufacturer3-wallet-db
+    networks:
+      - manufacturer3-domain
+  ### business-logic
+  manufacturer3-business-logic:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.controller
+    container_name: manufacturer3-business-logic
+    env_file:
+      - agents/manufacturer3/.env
+    depends_on:
+      - manufacturer3-agent
+      #- duet-base
+    networks:
+      - manufacturer3-domain
+      - duet-domain
+    volumes:
+      - ./agents/manufacturer3/notebooks:/workspace
+      #- ./recipes:/workspace/recipes
+      - ./libs:/workspace/libs
+      #- ./SyMPC/examples:/workspace/sympc-examples
+    ports:
+      # Jupyter Notebook port - always map from 8888 to any available port
+      - 8892:8888
+      # WEBHOOK_PORT
+      - 4012:3010
 
   #########################################################################
   #### authority Services
@@ -151,9 +291,9 @@ services:
       - duet-domain
     volumes:
       - ./agents/authority/notebooks:/workspace
-      - ./recipes:/workspace/recipes
+      #- ./recipes:/workspace/recipes
       - ./libs:/workspace/libs
-      - ./SyMPC/examples:/workspace/sympc-examples
+      #- ./SyMPC/examples:/workspace/sympc-examples
     ports:
       - "8888:8888"
       - 3010:3010
@@ -208,63 +348,12 @@ services:
       - duet-domain
     volumes:
       - ./agents/city/notebooks:/workspace
-      - ./recipes:/workspace/recipes
+      #- ./recipes:/workspace/recipes
       - ./libs:/workspace/libs
     ports:
       - 8890:8888
       # WEBHOOK_PORT
       - 3011:3010
-
-#    #### ACTOR TEMPLATE SERVICES - Uncomment and edit as appropriate ######
-#      template-wallet-db:
-#        image: postgres:11
-#        container_name: template-wallet-db
-#        command: postgres -c listen_addresses='*'
-#        # env file defines
-#        env_file:
-#          - agents/template/.env
-#        volumes:
-#          - ./resources/init.sql:/docker-entrypoint-initdb.d/init.sql
-#        networks:
-#          - template-domain
-#        tty: true
-#      ngrok-template:
-#        image: wernight/ngrok
-#        command: ngrok http template-agent:3020 --log stdout
-#        networks:
-#          - template-domain
-#      template-agent:
-#        build:
-#          context: .
-#          dockerfile: dockerfiles/Dockerfile.agent
-#        env_file:
-#          - agents/template/.env
-#        ports:
-#          # HTTP_PORT
-#          - <UNIQUE_PORT>:3020
-#          # ADMIN_PORT
-#          - <UNIQUE_PORT>:3021
-#        depends_on:
-#          - template-wallet-db
-#        networks:
-#          - template-domain
-#      template-business-logic:
-#        build:
-#          context: .
-#          dockerfile: dockerfiles/Dockerfile.controller
-#        env_file:
-#          - agents/template/.env
-#        depends_on:
-#          - template-agent
-#        networks:
-#          - template-domain
-#        volumes:
-#          - ./agents/template/notebooks:/workspace
-#          - ./recipes:/workspace/recipes
-#        ports:
-#          - 8890:8888
-#          # WEBHOOK_PORT
-#          - <UNIQUE_PORT>:3010
 
 ##### UNCOMMENT FOR A TAILS SERVER ######
 # Note - for revocation to work you will have to make additional changes to the env files
@@ -288,5 +377,7 @@ services:
 networks:
   authority-domain:
   manufacturer1-domain:
+  manufacturer2-domain:
+  manufacturer3-domain:
   city-domain:
   duet-domain:
