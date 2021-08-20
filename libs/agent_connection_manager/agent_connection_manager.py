@@ -2,9 +2,17 @@
 # -*- coding: utf-8 -*-
 """Provides managers specific to SSI / Trust Triangle roles.
 
-AgentConnectionManager (ACM) is a superclass that helps to manage aries agents, send messages, and establish aries and
-duet connections. The subclasses (RelyingParty, CredentialHolder, IssuingAuthority) have functionalities that are
-specific to their roles in the trust triangle (e.g., only IssuingAuthority can issue verifiable credentials).
+AgentConnectionManager (ACM) is a based on PySyft's DuetCredentialExchanger Class. The class helps to manage aries
+agents, send messages, and establish aries and duet connections. Specifically, active aries connections are
+used to establish duet connections. The subclasses (RelyingParty, CredentialHolder, IssuingAuthority) have
+functionalities that are specific to their roles in the trust triangle (e.g., only IssuingAuthority can issue
+verifiable credentials).
+
+Note: there are two types of connections
+    (1) Aries Connections (via ACA-PY agents) to send messages and exchange verifiable credentials
+    (2) Duet Connections (via PySyft's Duet) to exchange data and host an encrypted database
+The Aries Connections are established by manually exchanging an invitation (e.g., QR-code or json posted online or
+sent via E-Mail). Then, messages are sent via the Aries Connection to establish Duet Connections.
 """
 
 # Standard libraries and 3rd party packages
@@ -38,6 +46,14 @@ nest_asyncio.apply()
 class AgentConnectionManager(DuetCredentialExchanger): #dce
 
     def __init__(self, agent_controller: AriesAgentController) -> None:
+        """
+        Initialize the AgentConnectionManager (ACM). The class builds on top of the DuetCredentialExchanger
+        (see https://github.com/OpenMined/PySyft/blob/7049ca017cf26074518c02d4891283c6e1101df5/packages/syft/src/syft/grid/duet/exchange_ids.py),
+        which is defined by the PySyft package. A DuetCredentialExchanger allows to exchange Duet Tokens
+        to initiate a Duet connection.
+        Args:
+            agent_controller:
+        """
         super().__init__() # Initiate DuetCredentialExchanger
         self.agent_controller = agent_controller # For aries agent
         self.agent_listeners = [
@@ -49,13 +65,17 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         self.role: Optional[str] = None # Role of agent controller (e.g., RelyingParty)
         self.duet_connection_id: Optional[str] = None # ID of connection through which to establish a Duet connection
 
-    def run(self, credential: str = "") -> str:
+    def run(self, credential: str = "") -> Optional[str]:
         """
-        Default function required for any subclass of DuetCredentialExchanger
+        Default function required for any subclass of DuetCredentialExchanger. Defines what credential_exchanger (i.e.,
+        agent_controller) should do when they initiate or join a Duet connection. Uses the connection_id previously
+        set as self.duet_connection_id
         Args:
-            credential: duet token obtained from the network
+            credential: duet token obtained from the Duet network
+            (see https://github.com/OpenMined/PySyft/blob/f4717d2944593460df9b431e9143c1d1208dc45d/packages/syft/src/syft/grid/duet/__init__.py)
 
-        Returns:
+        Returns: responder_id (duet token of duet partner who initiated the duet connection)
+                 OR client_id (duet token of duet partner who is joining the duet connection)
 
         """
 
@@ -65,95 +85,156 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         self.set_duet_config(_id)
 
         try:
+            # Get duet_connection and set duet_token to duet token
             duet_conn = self.get_duet_connection()
             duet_conn.duet_token = credential
-            # If agent is joining the duet connection:
+
+            # Process if agent is joining the duet connection:
             if self.join:
-                # Reset their responder_id to what was sent via SSI
-                # Continue with token exchange
                 self._duet_invitee_exchange(credential=duet_conn.duet_token)
                 return self.responder_id
-            # If agent is initiating the duet connection:
+
+            # Process if agent is initiating the duet connection:
             else:
                 client_id = self._duet_inviter_exchange(credential=duet_conn.duet_token)
                 return client_id
-        except KeyboardInterrupt:
-            print(colored("Keyboard Interrupt: ", COLOR_ERROR))
+
+        except Exception as e:
+            # If something fails, reset the duet configurations to ensure the code runs smoothly again afterwards
+            print(colored("Failed to establish Duet Connection: ", COLOR_ERROR, attrs=["bold"]), e)
             self.set_duet_config(self.duet_connection_id, reset=True)
-            return None
 
-    def set_duet_config(self, connection_id: str, duet_token_partner: Optional[str] = None, reset: bool = False):
+    def set_duet_config(self, connection_id: str, token: Optional[str] = None, reset: bool = False) -> None:
+        """
+        Sets duet connection configurations. Sets duet_conn.duet_token_partner as asyncio result if the variable
+        was previously defined as asyncio.Future(). Otherwise, it sents duet_conn.duet_token_partner as String.
+        Args:
+            connection_id: connection_id of aries connection through which a duet connection is established
+            token: duet token of the duet partner
+            reset: if True, reset all duet-related configuration variables. If false, set remaining variables.
 
+        Returns: -
+
+        """
+        # Get Aries Connection over which Duet Conneciton is established
         duet_conn = self.get_connection(connection_id)
+
+        # Reset all duet configurations
         if reset is True:
             self.duet_connection_id = None
             duet_conn.is_duet_connection = False
             duet_conn.duet_token_partner = None
-            #print(colored("Reset duet token config", COLOR_INFO))
+
+        # Or set connection as current duet_connection_id
         else:
-            # Set connection as current duet_connection_id
             self.duet_connection_id = connection_id
             duet_conn.is_duet_connection = True
-            text = "Set token config"
-            if duet_token_partner is not None:
-                # If duet_conn.duet_token_partner is defined as asyncio.Future()
-                if duet_conn.duet_token_partner is not None:
-                    duet_conn.duet_token_partner.set_result(duet_token_partner)
-                    text = "Set duet token partner as future"
-                # If duet_conn is not a future
-                else:
-                    duet_conn.duet_token = duet_token
-                    text = "Set duet token partner not as future"
-            #print(colored(text, COLOR_SUCCESS))
 
-    def get_duet_connection(self):
+            # Process token information if data is provided
+            if token is not None:
+                # If duet_conn.duet_token_partner is defined as asyncio.Future(), set_result
+                if duet_conn.duet_token_partner is not None:
+                    duet_conn.duet_token_partner.set_result(token)
+                # Else, just set string
+                else:
+                    #duet_conn.duet_token = duet_token
+                    duet_conn.duet_token_partner = token
+
+    def get_duet_connection(self) -> Connection:
+        """
+        Gets Aries connection over which a Duet connection is being established
+        Returns: Connection
+        """
         return self.get_connection(self.duet_connection_id)
 
-    def get_partner_duet_token(self):
-        duet_conn = self.get_connection(self.duet_connection_id)
-        print("Returning duet_conn.duet_token_partner", duet_conn.duet_token_partner)
-        return duet_conn.duet_token_partner
-
-    def get_duet_connections(self):
+    def get_duet_connections(self) -> [Connection]:
+        """
+        Get all Aries Connections thorugh which a Duet Connection is established
+        Returns: list of Connections
+        """
         return [c for c in self.connections if c.is_duet_connection is True]
 
-    # dce function
     def _duet_inviter_exchange(self, credential: str) -> str:
+        """
+        Proceed to initiate Duet connection as an inviter: (1) send credential (i.e., duet_token) to duet partner and
+        (2) await the duet token of the joining duet partner
+        Args:
+            credential: duet token of the agent herself
+
+        Returns: duet_token_partner is the duet token of the duet partner
+
+        """
+        # Get duet connection
         duet_conn = self.get_duet_connection()
+
+        # Send credential (i.e., duet token) to the joining duet partner
         self._send_duet_token(credential, 1, duet_conn)
-        client_id = self._await_partner_duet_token(2, duet_conn)
-        return client_id
+
+        # Await the response of the duet partner (i.e., another duet token)
+        duet_token_partner = self._await_partner_duet_token(2, duet_conn)
+
+        return duet_token_partner
 
     def _duet_invitee_exchange(self, credential: str) -> None:
+        """
+        Proceed to join a Duet connection as an invitee: (1) Await duet token of inviting partner, (2) reset responder
+        ID (because otherwise it is only set as ""), and send duet token to the inviting party.
+        Args:
+            credential: duet token of invitee
+
+        Returns: -
+
+        """
 
         # Get duet connection
         duet_conn = self.get_duet_connection()
 
-        # Await duet_token_partner if it is None
+        # Await duet_token_partner if the inviting duet partner has not yet sent a duet token
         if duet_conn.duet_token_partner is None:
             self._await_partner_duet_token(1, duet_conn)
+
+        # Else print that a duet token was already received
         else:
-            print("\n♫♫♫ >", colored("STEP 1:", attrs=["bold"]), "Obtained Duet Token {c}".format(c=self.get_partner_duet_token()))
+            print("\n♫♫♫ >", colored("STEP 1:", attrs=["bold"]), "Obtained Duet Token {c}".format(c=duet_conn.duet_token_partner))
             print("♫♫♫ > from Duet Partner {n}".format(n=duet_conn.connection_with))
-            print("♫♫♫ > via Connection ID {cid}".format(cid=self.duet_connection_id))
+            print("♫♫♫ > via Connection ID {cid}".format(cid=duet_conn.connection_id))
 
-        # Reset responder_id (of DuetCredentialExchanger) to the duet token obtained by the partner
-        self.set_responder_id(self.get_partner_duet_token())
+        # Reset responder_id (of DuetCredentialExchanger) to the duet token obtained by the partner -> relevant for
+        # the proper functionality of the DuetCredentialExchanger
+        self.set_responder_id(duet_conn.duet_token_partner)
 
-        # Send duet token
+        # Send duet token to initiating duet partner
         self._send_duet_token(credential, 2, duet_conn)
-        #print("♫♫♫ > STEP 2: Send the following Duet Client ID to your duet partner: {c}".format(c=credential))
-        #self.send_message(self.duet_connection_id, "Duet Token : {c}".format(c=credential), print_info=False)
         print("\n♫♫♫ > ...waiting for partner to connect...")
 
-    def _send_duet_token(self, credential: str, step: int, duet_conn: Connection):
+    def _send_duet_token(self, credential: str, step: int, duet_conn: Connection) -> None:
+        """
+        Send duet token to partner and print information
+        Args:
+            credential: duet token that should be sent
+            step: step number (so internal function can be used in different situations)
+            duet_conn: Aries connection over which a Duet Connection is established
+
+        Returns: -
+
+        """
         # Send duet token to duet partner
         print("\n♫♫♫ >", colored("STEP {n}:".format(s=step), attrs=["bold"]), "Sending Duet Token {c}".format(c=credential))
         print("♫♫♫ > to Duet Partner {n}".format(n=duet_conn.connection_with))
         print("♫♫♫ > via Connection ID {cid}".format(cid=self.duet_connection_id))
         self.send_message(self.duet_connection_id, "Duet Token : {c}".format(c=credential), duet_print=True)
 
-    def _await_partner_duet_token(self, step: int, duet_conn: Connection):
+    def _await_partner_duet_token(self, step: int, duet_conn: Connection) -> None:
+        """
+        Await duet token from partner and print information
+        Args:
+            credential: duet token that should be sent
+            step: step number to print function call as correct step
+            duet_conn: Aries connection over which a Duet Connection is established
+
+        Returns: -
+
+        """
         print("\n♫♫♫ >", colored("STEP {n}:".format(n=str(step)), attrs=["bold"]), "Awaiting Duet Token from Duet Partner...")
 
         # Set Duet Token to asyncio.Future() (i.e. we are awaiting a result) and wait until it is set
