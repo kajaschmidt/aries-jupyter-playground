@@ -21,11 +21,11 @@ RUN pip3 install -r requirements.txt
 #RUN pip3 install syft
 
 # Install submodule SyMPC (see SyMPC/docker-images/Dockerfile)
-ADD SyMPC SyMPC
-WORKDIR SyMPC
-RUN pip3 install setuptools_scm
-RUN pip3 install -r requirements.txt #&& pip3 install -r requirements.dev.txt
-RUN pip3 install -e .
+#ADD SyMPC SyMPC
+#WORKDIR SyMPC
+#RUN pip3 install setuptools_scm
+#RUN pip3 install -r requirements.txt #&& pip3 install -r requirements.dev.txt
+#RUN pip3 install -e .
 
 # Create jupyter notebook workspace
 #RUN mkdir $WORKSPACE

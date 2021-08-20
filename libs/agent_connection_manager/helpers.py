@@ -20,7 +20,7 @@ def get_choice(input_text: str, no_text: str = None) -> bool:
     # Iterate three times to prompt user
     for i in range(3):
         # raw_input returns the empty string for "enter"
-        choice = input(colored(input_text+" [yes/no]", COLOR_INPUT))
+        choice = input(colored(input_text + " [yes/no]", COLOR_INPUT))
         choice = choice.lower()
 
         if choice in ['yes', 'y', 'ye', '']:
