@@ -4,3 +4,4 @@ termcolor
 pprintpp
 pypubsub
 qrcode
+syft @ git+https://github.com/OpenMined/PySyft@sympc-dev#egg=syft&subdirectory=packages/syft

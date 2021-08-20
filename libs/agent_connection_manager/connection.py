@@ -8,16 +8,20 @@ from .helpers import *
 class Connection:
 
     def __init__(self, connection_id, auto_accept: bool = True, auto_ping: bool = True, alias: Optional[str] = None):
-        self.connection_id = connection_id
-        self.is_active = False
-        self.duet_connection_ids: [str] = []
+        self.connection_id: str = connection_id
+        self.is_active: bool = False
+        #self.duet_connection_ids: [str] = []
         self.presentation_exchange_ids: [str] = []
-        self.verified_attributes = []
-        self.self_attested_attributes = []
-        self.alias = alias
-        self.auto_ping = auto_ping
-        self.auto_accept = auto_accept
-        self.connection_with = None
+        self.verified_attributes: list = []
+        self.self_attested_attributes: list = []
+        self.alias: str = alias
+        self.auto_ping: bool = auto_ping
+        self.auto_accept: bool = auto_accept
+        self.connection_with: str = None
+
+        self.is_duet_connection: bool = False
+        self.duet_token_partner: Union[Optional[asyncio.Future()], Optional[str]] = None
+        self.duet_token: Optional[str] = None
 
         # self.display()
 
@@ -38,4 +42,5 @@ class Connection:
         # print("Auto Accept : ", self.auto_accept)
         print("Connection Alias : ", self.alias)
         print("Presentation Exchange IDs : ", self.presentation_exchange_ids)
+        #print("Is Duet Connection : ")
         print("---------------------------------------------------------------------")
