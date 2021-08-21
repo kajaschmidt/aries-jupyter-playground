@@ -14,10 +14,10 @@ class Connection:
         self.presentation_exchange_ids: [str] = []
         self.verified_attributes: list = []
         self.self_attested_attributes: list = []
-        self.alias: str = alias
+        self.alias: Optional[str] = alias
         self.auto_ping: bool = auto_ping
         self.auto_accept: bool = auto_accept
-        self.connection_with: str = None
+        self.connection_with: Optional[str] = None
 
         self.is_duet_connection: bool = False
         self.duet_token_partner: Union[Optional[asyncio.Future()], Optional[str]] = None
@@ -25,7 +25,7 @@ class Connection:
 
         # self.display()
 
-    def display(self) -> None:
+    def display(self, duet: bool = False) -> None:
         """
         Display Connection with its attributes
         Returns: -
@@ -37,10 +37,14 @@ class Connection:
         print(colored("Connection with {i}".format(i=self.connection_with), attrs=["bold"]))
         print("Connection ID : ", self.connection_id)
         print("Connection with : ", self.connection_with)
-        print("Is Active : ", colored(self.is_active, is_active_color))
-        # print("Auto Ping : ", self.auto_ping)
-        # print("Auto Accept : ", self.auto_accept)
-        print("Connection Alias : ", self.alias)
-        print("Presentation Exchange IDs : ", self.presentation_exchange_ids)
-        #print("Is Duet Connection : ")
+        if duet is False:
+            print("Is Active : ", colored(self.is_active, is_active_color))
+            print("Auto Ping : ", self.auto_ping)
+            print("Auto Accept : ", self.auto_accept)
+            print("Connection Alias : ", self.alias)
+            print("Presentation Exchange IDs : ", self.presentation_exchange_ids)
+        else:
+            print("Is Duet Connection : ", self.is_duet_connection)
+            print("Duet Token : ", self.duet_token)
+            print("Partner's Duet Token : ", self.duet_token_partner)
         print("---------------------------------------------------------------------")

@@ -17,12 +17,6 @@
 ######################################################################################
 version: "3"
 services:
-  #### duet service ####
-  #duet-base:
-  #  container_name: duet-base
-  #  build:
-  #    context: .
-  #    dockerfile: dockerfiles/Dockerfile.duet
   ##### manufacturer1 Services #####
   # wallet-db
   # a postgres database where agent data will be persisted unless you run ./manage down
@@ -86,15 +80,13 @@ services:
       - agents/manufacturer1/.env
     depends_on:
       - manufacturer1-agent
-      #- duet-base
     networks:
       - manufacturer1-domain
       - duet-domain
     volumes:
       - ./agents/manufacturer1/notebooks:/workspace
-      #- ./recipes:/workspace/recipes
+      - ./data/manufacturer1:/workspace/data
       - ./libs:/workspace/libs
-      #- ./SyMPC/examples:/workspace/sympc-examples
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
       - 8889:8888
@@ -156,15 +148,13 @@ services:
       - agents/manufacturer2/.env
     depends_on:
       - manufacturer2-agent
-      #- duet-base
     networks:
       - manufacturer2-domain
       - duet-domain
     volumes:
       - ./agents/manufacturer2/notebooks:/workspace
-      #- ./recipes:/workspace/recipes
+      - ./data/manufacturer2:/workspace/data
       - ./libs:/workspace/libs
-      #- ./SyMPC/examples:/workspace/sympc-examples
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
       - 8891:8888
@@ -226,15 +216,13 @@ services:
       - agents/manufacturer3/.env
     depends_on:
       - manufacturer3-agent
-      #- duet-base
     networks:
       - manufacturer3-domain
       - duet-domain
     volumes:
       - ./agents/manufacturer3/notebooks:/workspace
-      #- ./recipes:/workspace/recipes
+      - ./data/manufacturer3:/workspace/data
       - ./libs:/workspace/libs
-      #- ./SyMPC/examples:/workspace/sympc-examples
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
       - 8892:8888
@@ -285,15 +273,12 @@ services:
       - agents/authority/.env
     depends_on:
       - authority-agent
-      #- duet-base
     networks:
       - authority-domain
       - duet-domain
     volumes:
       - ./agents/authority/notebooks:/workspace
-      #- ./recipes:/workspace/recipes
       - ./libs:/workspace/libs
-      #- ./SyMPC/examples:/workspace/sympc-examples
     ports:
       - "8888:8888"
       - 3010:3010
@@ -342,13 +327,11 @@ services:
       - agents/city/.env
     depends_on:
       - city-agent
-      #- duet-base
     networks:
       - city-domain
       - duet-domain
     volumes:
       - ./agents/city/notebooks:/workspace
-      #- ./recipes:/workspace/recipes
       - ./libs:/workspace/libs
     ports:
       - 8890:8888

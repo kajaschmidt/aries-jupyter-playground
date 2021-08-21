@@ -1,5 +1,4 @@
 FROM continuumio/miniconda3
-#FROM duet-base
 
 ENV WORKSPACE /workspace
 
@@ -12,23 +11,18 @@ RUN conda install -c conda-forge jupyterlab==3.0.11
 
 WORKDIR ./
 
-# Install the aries_cloudcontroller
+# Install aries_cloudcontroller and requirements (except for PySyft, SyMPC)
 ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
-# Install Syft
-#ADD PySyft/packages/syft syft
-#RUN pip3 install syft
-
-# Install submodule SyMPC (see SyMPC/docker-images/Dockerfile)
-#ADD SyMPC SyMPC
-#WORKDIR SyMPC
-#RUN pip3 install setuptools_scm
-#RUN pip3 install -r requirements.txt #&& pip3 install -r requirements.dev.txt
-#RUN pip3 install -e .
+# Install submodule SyMPC (copied from SyMPC/docker-images/Dockerfile) and PySyft
+ADD SyMPC SyMPC
+WORKDIR SyMPC
+RUN pip3 install setuptools_scm
+RUN pip3 install -r requirements.txt #&& pip3 install -r requirements.dev.txt
+RUN pip3 install -e .
 
 # Create jupyter notebook workspace
-#RUN mkdir $WORKSPACE
 WORKDIR $WORKSPACE
 
 # Make the image start the jupyter notebook

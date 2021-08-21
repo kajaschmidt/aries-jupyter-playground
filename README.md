@@ -1,13 +1,16 @@
-# Aries ACA-Py Jupyter Playground
+# Combining Aries ACA-Py and PySyft for Sovereign Data Exchange
 
-## A Jupyter Notebook Based Playground for Education and Experimentation with Hyperledger Aries
+This library is the basis of a master thesis to demonstrate how Aries ACA-Py (SSI) and PySyft (SMC) can be combined to enable sovereign data exchange.
+
+
+## A Jupyter Notebook Based PoC to demonstrate the combination of Self-Sovereign Identity and Secure Multiparty Computation
 
 Design, describe and implement actors and interactions involving the verifiable exchange of information relevant to a specific context. Learn and evaluate what is technically possible using these technologies, validate them for your use case.
 
-This project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. As an learner, experimenter or explorer using this playground you get to focus on writing business logic in python through a Jupyter notebook interface that uses the aries-cloudcontroller to interface with the actors respective ACA-Py agent. Either by sending API requests to their exposed Swagger-API or receiving events from this agent posted to a webhook server that you can run within the notebook.
+This project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. As a learner, experimenter or explorer using this playground you get to focus on writing business logic in python through a Jupyter notebook interface that uses the aries-cloudcontroller to interface with the actors respective ACA-Py agent. Either by sending API requests to their exposed Swagger-API or receiving events from this agent posted to a webhook server that you can run within the notebook.
 
 
-![Playground Architecture](./system-architecture.png)
+![PoC Architecture](./system-architecture.png)
 
 ## Requirements
 
@@ -25,27 +28,29 @@ Verify that **s2i** is in your PATH.  If not, then edit your PATH and add the di
 
 Ensure that Docker is running. If it is not try `sudo dockerd` in another terminal.
 
-## Starting the Playground
+## Starting the PoC
 
-This playground comes with example configuration of two actors authority and manufacturer1.
+This playground comes with five agents that interact with one another: Authority, City, Manufacturer1, Manufacturer2, and Manufacturer3. Each agent has four containers (Aries Agent, Wallet Postgres-DB, Ngrok, and Jupyter Lab). The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container.
 
-Before you can launch the playground you must set the .env file for each of authority and manufacturer1. The file should be under `playground/<agent_name>/.env`. 
+Before you can launch the PoC, you must set the .env file for each of agent. For a quick start, copy the files `playground/<agent-name>/<agent-name>_example.env` and rename them to `playground/<agent-file>/.env`.
 
-For quick start just copy the example env files provided (e.g. manufacturer1-example.env) and rename them to .env.
+Then, move to the `./SyMPC` directory and clone the [SyMPC repository](https://github.com/OpenMined/SyMPC). The SyMPC package is created by the OpenMined organization, and an extension of the [PySyft](https://github.com/OpenMined/PySyft) library, and automatically installs PySyft (which is needed for this PoC). 
 
-Then run:
+Finally run:
 
 `./manage.sh start`
 
-This spins up all docker containers defined in the `docker-compose.yml` file and named in the DEFAULT_CONTAINERS variable defined in the `manage.sh` shell script.
+This spins up all docker containers defined in the `docker-compose.yml` file and named in the DEFAULT_CONTAINERS variable defined in the `manage.sh` shell script. 
+
+**Note:** An error when spinning the docker containers might be `Service '<docker-container>' failed to build : Build failed`. A possible solution is to up the Memory available to docker to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container).
 
 The urls for the jupyter notebook server for each agent can be retrieved by running `./scripts/get_URLS.sh` in a terminal from the root of this project.
 
-To stop the playground either:
+To stop the PoC either:
 
 `./manage.sh stop` - this terminates the containers but persists the volumes. Specifically the agent wallet storage held in postgres-db's
 
-`./manage.sh down` - terminate containers and delete all volumes
+`./manage.sh down` - terminate containers and delete all volumes (e.g., the issued VCs stored in an agent's wallet)
 
 ## Writing Business Logic
 

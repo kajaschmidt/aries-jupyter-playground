@@ -43,7 +43,7 @@ nest_asyncio.apply()
 
 
 # @todo: might have to make this into a duetcredentialexchanger...
-class AgentConnectionManager(DuetCredentialExchanger): #dce
+class AgentConnectionManager(DuetCredentialExchanger):  # dce
 
     def __init__(self, agent_controller: AriesAgentController) -> None:
         """
@@ -54,16 +54,16 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         Args:
             agent_controller:
         """
-        super().__init__() # Initiate DuetCredentialExchanger
-        self.agent_controller = agent_controller # For aries agent
+        super().__init__()  # Initiate DuetCredentialExchanger
+        self.agent_controller = agent_controller  # For aries agent
         self.agent_listeners = [
             {"topic": "connections", "handler": self._connections_handler},
             {"topic": "basicmessages", "handler": self._messages_handler},
         ]
-        self.connections: [Connection] = [] # List of connections established with agent_controller
-        self.messages: [Message] = [] # List of messages agent_controller received
-        self.role: Optional[str] = None # Role of agent controller (e.g., RelyingParty)
-        self.duet_connection_id: Optional[str] = None # ID of connection through which to establish a Duet connection
+        self.connections: TypeDict = {}  # Dict of connections established with agent_controller {connection_id : Connection}
+        self.messages: [Message] = []  # List of messages agent_controller received
+        self.role: Optional[str] = None  # Role of agent controller (e.g., RelyingParty)
+        self.duet_connection_id: Optional[str] = None  # ID of connection through which to establish a Duet connection
 
     def run(self, credential: str = "") -> Optional[str]:
         """
@@ -78,67 +78,18 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
                  OR client_id (duet token of duet partner who is joining the duet connection)
 
         """
+        # Get duet_connection and set duet_token to duet token (self.duet_connection_id is set in agents' notebooks beforehand)
+        self._update_connection(connection_id=self.duet_connection_id, token=credential)
 
-        # Make sure all config from previous launches is set back to zero (e.g., duet_token_partner future)
-        _id = self.duet_connection_id
-        self.set_duet_config(_id, reset=True)
-        self.set_duet_config(_id)
+        # Process if agent is joining the duet connection:
+        if self.join:
+            self._duet_invitee_exchange(credential=credential)
+            return self.responder_id
 
-        try:
-            # Get duet_connection and set duet_token to duet token
-            duet_conn = self.get_duet_connection()
-            duet_conn.duet_token = credential
-
-            # Process if agent is joining the duet connection:
-            if self.join:
-                self._duet_invitee_exchange(credential=duet_conn.duet_token)
-                return self.responder_id
-
-            # Process if agent is initiating the duet connection:
-            else:
-                client_id = self._duet_inviter_exchange(credential=duet_conn.duet_token)
-                return client_id
-
-        except Exception as e:
-            # If something fails, reset the duet configurations to ensure the code runs smoothly again afterwards
-            print(colored("Failed to establish Duet Connection: ", COLOR_ERROR, attrs=["bold"]), e)
-            self.set_duet_config(self.duet_connection_id, reset=True)
-
-    def set_duet_config(self, connection_id: str, token: Optional[str] = None, reset: bool = False) -> None:
-        """
-        Sets duet connection configurations. Sets duet_conn.duet_token_partner as asyncio result if the variable
-        was previously defined as asyncio.Future(). Otherwise, it sents duet_conn.duet_token_partner as String.
-        Args:
-            connection_id: connection_id of aries connection through which a duet connection is established
-            token: duet token of the duet partner
-            reset: if True, reset all duet-related configuration variables. If false, set remaining variables.
-
-        Returns: -
-
-        """
-        # Get Aries Connection over which Duet Conneciton is established
-        duet_conn = self.get_connection(connection_id)
-
-        # Reset all duet configurations
-        if reset is True:
-            self.duet_connection_id = None
-            duet_conn.is_duet_connection = False
-            duet_conn.duet_token_partner = None
-
-        # Or set connection as current duet_connection_id
+        # Process if agent is initiating the duet connection:
         else:
-            self.duet_connection_id = connection_id
-            duet_conn.is_duet_connection = True
-
-            # Process token information if data is provided
-            if token is not None:
-                # If duet_conn.duet_token_partner is defined as asyncio.Future(), set_result
-                if duet_conn.duet_token_partner is not None:
-                    duet_conn.duet_token_partner.set_result(token)
-                # Else, just set string
-                else:
-                    #duet_conn.duet_token = duet_token
-                    duet_conn.duet_token_partner = token
+            client_id = self._duet_inviter_exchange(credential=credential)
+            return client_id
 
     def get_duet_connection(self) -> Connection:
         """
@@ -152,7 +103,7 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         Get all Aries Connections thorugh which a Duet Connection is established
         Returns: list of Connections
         """
-        return [c for c in self.connections if c.is_duet_connection is True]
+        return [c for _id, c in self.connections.items() if c.is_duet_connection is True]
 
     def _duet_inviter_exchange(self, credential: str) -> str:
         """
@@ -171,9 +122,9 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         self._send_duet_token(credential, 1, duet_conn)
 
         # Await the response of the duet partner (i.e., another duet token)
-        duet_token_partner = self._await_partner_duet_token(2, duet_conn)
+        token_partner = self._await_partner_duet_token(2, duet_conn)
 
-        return duet_token_partner
+        return token_partner
 
     def _duet_invitee_exchange(self, credential: str) -> None:
         """
@@ -188,20 +139,21 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
 
         # Get duet connection
         duet_conn = self.get_duet_connection()
+        token_partner = duet_conn.duet_token_partner
 
-        # Await duet_token_partner if the inviting duet partner has not yet sent a duet token
-        if duet_conn.duet_token_partner is None:
-            self._await_partner_duet_token(1, duet_conn)
-
+        # Await duet_token_partner if the inviting duet partner has not yet sent a duet token,
+        # or Future() is already initiated
+        if token_partner is None or token_partner is asyncio.Future():
+            token_partner = self._await_partner_duet_token(1, duet_conn)
         # Else print that a duet token was already received
         else:
-            print("\n♫♫♫ >", colored("STEP 1:", attrs=["bold"]), "Obtained Duet Token {c}".format(c=duet_conn.duet_token_partner))
+            print("\n♫♫♫ >", colored("STEP 1:", attrs=["bold"]), "Obtained Duet Token {c}".format(c=token_partner))
             print("♫♫♫ > from Duet Partner {n}".format(n=duet_conn.connection_with))
             print("♫♫♫ > via Connection ID {cid}".format(cid=duet_conn.connection_id))
 
         # Reset responder_id (of DuetCredentialExchanger) to the duet token obtained by the partner -> relevant for
         # the proper functionality of the DuetCredentialExchanger
-        self.set_responder_id(duet_conn.duet_token_partner)
+        self.set_responder_id(token_partner)
 
         # Send duet token to initiating duet partner
         self._send_duet_token(credential, 2, duet_conn)
@@ -219,12 +171,13 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
 
         """
         # Send duet token to duet partner
-        print("\n♫♫♫ >", colored("STEP {n}:".format(s=step), attrs=["bold"]), "Sending Duet Token {c}".format(c=credential))
+        print("\n♫♫♫ >", colored("STEP {n}:".format(n=str(step)), attrs=["bold"]),
+              "Sending Duet Token {c}".format(c=credential))
         print("♫♫♫ > to Duet Partner {n}".format(n=duet_conn.connection_with))
         print("♫♫♫ > via Connection ID {cid}".format(cid=self.duet_connection_id))
         self.send_message(self.duet_connection_id, "Duet Token : {c}".format(c=credential), duet_print=True)
 
-    def _await_partner_duet_token(self, step: int, duet_conn: Connection) -> None:
+    def _await_partner_duet_token(self, step: int, duet_conn: Connection) -> str:
         """
         Await duet token from partner and print information
         Args:
@@ -235,26 +188,28 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         Returns: -
 
         """
-        print("\n♫♫♫ >", colored("STEP {n}:".format(n=str(step)), attrs=["bold"]), "Awaiting Duet Token from Duet Partner...")
-
         # Set Duet Token to asyncio.Future() (i.e. we are awaiting a result) and wait until it is set
-        duet_conn.duet_token_partner = asyncio.Future()
+        print("\n♫♫♫ >", colored("STEP {n}:".format(n=str(step)), attrs=["bold"]),
+              "Awaiting Duet Token from Duet Partner...")
+        if duet_conn.duet_token_partner is None:
+            self._update_connection(connection_id=duet_conn.connection_id, token_partner=asyncio.Future())
+
+        # Wait until duet_token_partner is set a Future() with status "Finished"
         loop = asyncio.get_event_loop()
         duet_token_partner = loop.run_until_complete(duet_conn.duet_token_partner)
 
-        # One future is fulfilled, replace with string you just got
-        duet_conn.duet_token_partner = duet_token_partner
-        print("\n♫♫♫ >", colored("DONE!", COLOR_SUCCESS, attrs=["bold"]), "Partner's Duet Token:", duet_token_partner)
-
-        return duet_token_partner
+        # Print duet_token_partner info and return
+        print("\n♫♫♫ >", colored("DONE!", COLOR_SUCCESS, attrs=["bold"]), "Partner's Duet Token:",
+              str(duet_token_partner))
+        return str(duet_token_partner)
 
     def get_connection(self, connection_id: str) -> Optional[Connection]:
         """
         Get connection by connection_id
         Returns: Connection (if it exists) or None
         """
-        for connection in self.connections:
-            if connection.connection_id == connection_id:
+        for _id, connection in self.connections.items():
+            if _id == connection_id:
                 return connection
         return None
 
@@ -262,7 +217,7 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         """
         Returns: Get all connections of the agent
         """
-        return self.connections
+        return list(self.connections.values())
 
     def get_active_connections(self) -> list[Optional[Connection]]:
         """
@@ -270,7 +225,7 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         Returns: list of active connections
 
         """
-        return [c for c in self.connections if c.is_active is True]
+        return [c for _id, c in self.connections.items() if c.is_active is True]
 
     def get_connection_id(self, agent_name: str) -> list[Optional[Connection]]:
         """
@@ -281,14 +236,24 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         Returns: list of connection ids shared with agent_name
 
         """
-        connection_ids = [c.connection_id for c in self.connections if c.connection_with == agent_name]
+        connection_ids = [_id for _id, c in self.connections.items() if c.connection_with == agent_name]
         return connection_ids
 
-    def _store_connection_id(self, connection_id: str, auto_accept: Optional[bool] = None,
-                             auto_ping: Optional[bool] = None,
-                             alias: Optional[str] = None) -> Connection:
+    def _update_connection(self,
+                           connection_id: str,
+                           auto_accept: Optional[bool] = None,
+                           auto_ping: Optional[bool] = None,
+                           alias: Optional[str] = None,
+                           connection_with: Optional[str] = None,
+                           is_active: Optional[bool] = None,
+                           is_duet_connection: Optional[bool] = None,
+                           token_partner=None,
+                           token: Optional[str] = None,
+                           reset_duet: bool = False
+                           ) -> Connection:
         """
-        Verify if connection_id exists already. If yes, return it. Else, add it to self.connections and return it.
+        Verify if connection_id exists already. If yes, update and return it.
+        Else, add it to self.connections, configure it, and return it.
         Args:
             connection_id: connection_id
             auto_accept: whether connection is auto_accepted or not
@@ -300,12 +265,10 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         """
         # Get conn. If conn does not yet exist, this will return None
         conn = self.get_connection(connection_id)
-        append_conn = False
 
         # Else create a new conn
         if conn is None:
             conn = Connection(connection_id)
-            append_conn = True
 
         # Update variables of conn
         if auto_accept is not None:
@@ -314,12 +277,51 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
             conn.auto_ping = auto_ping
         if alias is not None:
             conn.alias = alias
+        if is_active is not None:
+            conn.is_active = is_active
+        if connection_with is not None:
+            conn.connection_with = connection_with
+        if is_duet_connection is not None:
+            conn.is_duet_connection = is_duet_connection
+            self.duet_connection_id = connection_id
 
-        # Append connection to self.connections if it is newly created
-        if append_conn is True:
-            self.connections.append(conn)
+        update_future = False
 
-        return conn
+        # Reset all duet configurations if reset
+        if reset_duet is True:
+            self.duet_connection_id = None if is_duet_connection is None else connection_id
+            conn.is_duet_connection = False if is_duet_connection is None else is_duet_connection
+            # Do not update duet_token_partner if duet_token is None (because then the duet_token_partner value might
+            # be the value we just obtained from the duet partner)
+            if (conn.duet_token is not None) and (conn.duet_token_partner is not None):
+                conn.duet_token_partner = None
+                conn.duet_token = None
+        else:
+            if token is not None:
+                conn.duet_token = token
+                conn.is_duet_connection = True
+                self.duet_connection_id = connection_id
+            if token_partner is not None:
+                conn.is_duet_connection = True
+                self.duet_connection_id = connection_id
+
+                # Else, set duet_token_partner as string
+                if conn.duet_token_partner is None:
+                    conn.duet_token_partner = token_partner
+                else:
+                    update_future = True  # boolean to remember we need to execute this at the end
+
+        # Add or update connection to self.connections
+        self.connections[connection_id] = conn
+
+        # Execute after udpating most of the dictionary, because "set_result" will trigger the _await_ function to run
+        if update_future:
+            try:
+                self.connections[connection_id].duet_token_partner.set_result(token_partner)
+            except:
+                self.connections[connection_id].duet_token_partner = token_partner
+
+        return self.connections[connection_id]
 
     def get_message(self, message_id: Optional[str] = None) -> Optional[Message]:
         """
@@ -418,7 +420,8 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
 
         # Get connection_id and store as new connection in self (or update existing connection)
         connection_id = invitation_response["connection_id"]
-        conn = self._store_connection_id(connection_id, auto_accept, auto_ping, alias)
+        conn = self._update_connection(connection_id=connection_id, auto_accept=auto_accept, auto_ping=auto_ping,
+                                       alias=alias)
 
         # Print invitation to share it with an external agent
         invitation = invitation_response["invitation"]
@@ -455,7 +458,8 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
 
         # Get connection_id and store as a new connection in self
         connection_id = invitation_response["connection_id"]
-        conn = self._store_connection_id(connection_id, auto_accept, auto_ping, alias)
+        conn = self._update_connection(connection_id=connection_id, auto_accept=auto_accept, auto_ping=auto_ping,
+                                       alias=alias)
 
         # Ask user to accept invitation if auto_accept is set to False
         self._accept_connection_invitation(connection_id, auto_accept=auto_accept)
@@ -563,7 +567,7 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
             self.agent_controller.messaging.send_message(connection_id, basic_message)
         )
         if duet_print is True:
-            print(colore("♫♫♫ > Done!", COLOR_SUCCESS, attrs=["bold"]))
+            print(colored("♫♫♫ > Done!", COLOR_SUCCESS, attrs=["bold"]))
         else:
             print("Sent message via Connection ID {cid}".format(cid=connection_id))
 
@@ -585,9 +589,9 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
 
         # Register new connection_id if it does not yet exist
         if "alias" in payload:
-            conn = self._store_connection_id(connection_id, alias=payload["alias"])
+            conn = self._update_connection(connection_id=connection_id, alias=payload["alias"])
         else:
-            conn = self._store_connection_id(connection_id)
+            conn = self._update_connection(connection_id=connection_id)
 
         print("\n---------------------------------------------------------------------")
         print(colored("Connection Webhook Event Received: Connections Handler", attrs=["bold"]))
@@ -597,12 +601,12 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         if 'their_label' in payload:
             their_label = payload['their_label']
             print(f"Connection with : ", their_label)
-            conn.connection_with = their_label
+            conn = self._update_connection(connection_id=connection_id, connection_with=their_label)
         print("Their Role : ", their_role)
         print("---------------------------------------------------------------------")
 
         if state == "active":
-            conn.is_active = True
+            conn = self._update_connection(connection_id=connection_id, is_active=True)
             print(colored("\nConnection ID: {0} is now active".format(connection_id), COLOR_SUCCESS, attrs=["bold"]))
         elif rfc_state == "invitation-received":
             self._accept_invitation_response(connection_id, conn.auto_accept)
@@ -629,7 +633,8 @@ class AgentConnectionManager(DuetCredentialExchanger): #dce
         if "Duet Token :" in message.content:
             dci = message.content
             dci = dci.replace("Duet Token : ", "")
-            self.set_duet_config(message.connection_id, duet_token_partner=dci)
+            # self.set_duet_config(message.connection_id, token=dci)
+            self._update_connection(connection_id=message.connection_id, token_partner=dci)
 
         # Else store message in inbox (i.e., self.messages)
         else:
@@ -956,9 +961,8 @@ class CredentialHolder(AgentConnectionManager):
 
     def _get_suitable_vc_for_proof(self, requirements: dict) -> Tuple[dict, dict]:
         """
-        Finds credentials in credentials_all that satisfy the requirements provided by the relying party.
+        Finds credentials amongst all credentials stored in the agent's wallet that satisfy the requirements provided by the relying party.
         Args:
-            credentials_all:
             requirements:
 
         Returns: dictionary with: {<attribute-name>: <suitable-credential>}, where the suitable-credential satisfies all requirements
@@ -973,7 +977,7 @@ class CredentialHolder(AgentConnectionManager):
         # Setup
         relevant_credentials = {}
         revealed = {}
-        credentials = credentials_all["results"]
+        credentials = credentials["results"]
 
         # Iterate through attribute name and attribute requirements of relying party
         for name, conditions in requirements.items():
