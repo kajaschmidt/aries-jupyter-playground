@@ -3,6 +3,7 @@ import json
 import random
 import urllib
 from datetime import timedelta
+import time
 
 import geopy
 import geopy.distance
@@ -11,6 +12,7 @@ from pyroutelib3 import Router
 from shapely.geometry import Polygon, Point
 from tqdm import tqdm
 from termcolor import colored
+from typing import Optional
 
 from config import *
 
@@ -19,13 +21,13 @@ global ROUTER, GEOLOCATOR, MANUFACTURER_ID
 
 # -------------------------- Init functions
 
-def init():
+def init() -> None:
     """
     Init router, geolocator, and manufacturers list
     :return:
     """
 
-    def init_manufacturers():
+    def init_manufacturers() -> None:
         """
         Init List with IDs of manufacturers
         :return:
@@ -50,7 +52,7 @@ def init():
 
 # ---
 
-def get_distance(coord_a, coord_b):
+def get_distance(coord_a: tuple, coord_b: tuple) -> float:
     """
     Compute distance in km between start_coord and end_coord
     :param coord_a: (lat, lon)
@@ -63,7 +65,7 @@ def get_distance(coord_a, coord_b):
     return dist
 
 
-def get_manufacturerid():
+def get_manufacturerid() -> str:
     """
     Get manufacturer id from MANUFACTURER_ID list
     :return: id
@@ -71,7 +73,7 @@ def get_manufacturerid():
     return MANUFACTURER_ID["manufacturer_" + str(random.randint(0, N_MANUFACTURERS - 1))]
 
 
-def get_nodes(coord_a, coord_b):
+def get_nodes(coord_a: tuple, coord_b: tuple) -> tuple:
     """
     Get start and end nodes from route
     :param coord_a: (lat, lon)
@@ -88,7 +90,7 @@ def get_nodes(coord_a, coord_b):
         logging.warning(colored("Failed to compute start and end node", "red"))
 
 
-def get_route(start_node, end_node):
+def get_route(start_node: str, end_node: str) -> Optional[list]:
     """
     Finds route between start_node and end_node and converts them to latlon coordinates
     :param start_node: OSM node id
@@ -97,20 +99,20 @@ def get_route(start_node, end_node):
     """
     # Get route
     logging.debug("Exec get_route()")
-    status, route = ROUTER.doRoute(start_node, end_node)
 
-    if status == 'success':
+    try:
+        status, route = ROUTER.doRoute(start_node, end_node)
         # Get route coordinates
         coordinates = list(map(ROUTER.nodeLatLon, route))
         logging.info(colored("Successfully computed route", "green"))
         logging.debug("Route: {r}".format(r=coordinates))
         return coordinates
-    else:
-        logging.warning(colored("Failed to compute route", "red"))
+    except:
+        logging.warning(colored("Failed to get a route", "red"))
         return None
 
 
-def get_zipcode(lat, lon):
+def get_zipcode(lat, lon): #@todo: is zip_code a string or an int?
     """
     Get ZIP code from lat and lon
     :param lat: latitude
@@ -123,7 +125,7 @@ def get_zipcode(lat, lon):
     return zip_code
 
 
-def get_random_id(car: bool):
+def get_random_id(car: bool) -> str:
     """
     Generate random ID for vehicle or manufacturer
     :param car: (bool) if True: get V-number, else get M-number
@@ -138,11 +140,11 @@ def get_random_id(car: bool):
     return random_id
 
 
-def get_random_time():
+def get_random_time(): #@todo: what's the type of random_time?
     """
     This function will return a random datetime between two datetime
     objects.
-    :return:
+    :return: -
     """
     logging.debug("Exec get_random_time()")
     start = TIME_RANGE[0]
@@ -160,17 +162,16 @@ def get_random_time():
 
 # ------------------------------------------ Functions -------------------------------------------- #
 
-def get_city_boundaries(city, country):
+def get_city_boundaries() -> Polygon:
+    """
+    Get city boundaries of the city specified in config
+    Returns: polygon with city boundaries
+
     """
 
-    :param city:
-    :param country:
-    :return:
-    """
-
-    def get_boundary_lonlat(city, country):
+    def get_boundary_lonlat(city: str, country: str): #@todo: output a list?
         """
-
+        @todo
         :param city:
         :param country:
         :return:
@@ -199,17 +200,17 @@ def get_city_boundaries(city, country):
     logging.debug("Exec get_city_boundaries()")
 
     # Extract coordinates, apply buffer and convert to Polygon for the city
-    city = city.replace('ä', 'a').replace('ö', 'o').replace('ü', 'u')
-    lonlat = get_boundary_lonlat(city, country)
+    city = CITY.replace('ä', 'a').replace('ö', 'o').replace('ü', 'u')
+    lonlat = get_boundary_lonlat(city, COUNTRY)
     poly = Polygon(lonlat).buffer(0.005)
-    logging.info(colored("Successfully got polygon for {city}, {country}".format(city=city, country=country), "green"))
+    logging.info(colored("Successfully got polygon for {city}, {country}".format(city=CITY, country=COUNTRY), "green"))
 
     return poly
 
 
-def get_valid_coord(poly):
+def get_valid_coord(poly: Polygon) -> tuple:
     """
-
+    @todo
     :param poly:
     :return:
     """
@@ -226,9 +227,9 @@ def get_valid_coord(poly):
     return (random_lat, random_lon)
 
 
-def get_random_coords(poly):
+def get_random_coords(poly: Polygon) -> tuple:
     """
-
+    @todo
     :param poly:
     :return:
     """
@@ -240,11 +241,20 @@ def get_random_coords(poly):
         dist = get_distance(start_latlon, end_latlon)
         logging.debug("Distance: {d}".format(d=dist))
 
-    logging.info("Found two random coordinates with distance {d}km".format(d=dist))
+    logging.info(colored("Found two random coordinates with distance {d}km".format(d=dist), "green"))
     return start_latlon, end_latlon
 
 
-def compute_trip(start_coord, end_coord):
+def compute_trip(start_coord, end_coord) -> Optional[pd.DataFrame]: #@todo: types?
+    """
+    @todo
+    Args:
+        start_coord:
+        end_coord:
+
+    Returns:
+
+    """
     logging.debug("Exec compute_trip()")
     try:
         # Find Nodes
@@ -292,26 +302,27 @@ def compute_trip(start_coord, end_coord):
                 b = route_coords[i]
 
                 # Compute random speed that is between 60% and 115% of the previously recorded speed
-                seconds = round((dist / km_per_hour) * 60 * 60, 0)
                 dist = get_distance(a, b)
                 if dist == 0:
                     km_per_hour = 0
                     co2_per_km = 0
                     co2_relative = 0
+                    seconds = random.randint(0,10)
                 else:
                     km_per_hour = round(speed_old * random.randint(60, 115) / 100, 0)
                     co2_per_km = round(co2_per_km_old * random.randint(70, 120) / 100, 0)
                     co2_relative = round(co2_per_km * dist, 2)
+                    seconds = round((dist / km_per_hour) * 60 * 60, 0)
 
             # Store old variables for next round (to make values somewhat cohesive)
             speed_old = km_per_hour if km_per_hour > 0 else KM_PER_HOUR
             co2_per_km_old = co2_per_km if co2_per_km > 0 else CO2_PER_KM
 
             # Add to totals
-            total_dist += round(dist, 2)
+            total_dist = round(total_dist + dist, 2)
             total_seconds += seconds
             timestamp += timedelta(seconds=seconds)
-            total_co2 += round(co2_relative, 0)
+            total_co2 = round(total_co2 + co2_relative, 0)
             logging.debug(
                 "Speed: {s}km/h, Distance: {d}km, Time: {t}s, CO2: {co}g | Total time: {tt}s, Total dist: {td}km, Total CO2: {tco}g".format(s=km_per_hour,
                                                                                                              d=dist,
@@ -324,9 +335,8 @@ def compute_trip(start_coord, end_coord):
                                                                                                              tco=total_co2))
 
             point = {
-                "count": i,
-                "vid": vehicle_ID,
-                "mid": manufacturer_ID,
+                "vehicle_id": vehicle_ID,
+                "manufacturer_id": manufacturer_ID,
                 "zipcode": zipcode,
                 "timestamp": timestamp,
                 "latlon": route_coords[i],
@@ -342,7 +352,10 @@ def compute_trip(start_coord, end_coord):
             }
             trip.append(point)
 
-        print(colored(trip[-1], "blue"))
+            if DEBUG is False:
+                time.sleep(1)
+
+        logging.info(colored(trip[-1], "blue"))
         df = pd.DataFrame(trip)
 
         return df
@@ -350,3 +363,31 @@ def compute_trip(start_coord, end_coord):
     except Exception as e:
         logging.error(colored("compute_route() failed. {e}".format(e=e), "red"))
         return None
+
+
+def save_df(data: pd.DataFrame) -> None:
+    """
+    Store dataset as a whole (for safekeeping), and split into individual manufacturer datasets
+    Args:
+        data: pandas dataframe with artificial trip data
+
+    Returns: -
+
+    """
+    # Reset index and rename to i (count per trip)
+    data = data.reset_index().rename(columns={"index": "i"})
+
+    # Store dataset
+    #data.to_csv(PATH + FILE_NAME)
+    #logging.info(colored("Saved df as one csv", "green"))
+
+    # Split dataset into N_MANUFACTURER parts and save in given directory
+    for i, manufacturer_id in enumerate(data.manufacturer_id.unique()):
+        directory = "manufacturer{i}/".format(i=i+1)
+        data_i = data[data.manufacturer_id == manufacturer_id]
+        data_i = data_i.reset_index(drop=True)
+        dir_exists = os.path.exists(PATH+directory)
+        if dir_exists is False:
+            os.makedirs(PATH + directory)
+        data_i.to_csv(PATH + directory + FILE_NAME)
+        logging.info(colored(" > Stored data for manufacturer{i} under {p}".format(i=i+1,p=PATH+directory+FILE_NAME), "green"))
