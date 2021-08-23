@@ -1,6 +1,10 @@
 aries_cloudcontroller>=0.2.6
 asyncio
+branca
+folium
 termcolor
 pprintpp
 pypubsub
 qrcode
+shapely
+geopandas

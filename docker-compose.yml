@@ -333,6 +333,9 @@ services:
     volumes:
       - ./agents/city/notebooks:/workspace
       - ./libs:/workspace/libs
+      - ./data/manufacturer1:/workspace/xx/data/anonymous1
+      - ./data/manufacturer2:/workspace/xx/data/anonymous2
+      - ./data/manufacturer3:/workspace/xx/data/anonymous3
     ports:
       - 8890:8888
       # WEBHOOK_PORT
