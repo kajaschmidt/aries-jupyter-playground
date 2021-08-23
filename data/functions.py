@@ -1,16 +1,18 @@
 # Import
-import geopy
-import geopy.distance
 import json
-import pandas as pd
 import random
 import urllib
 from datetime import timedelta
+
+import geopy
+import geopy.distance
+import pandas as pd
 from pyroutelib3 import Router
 from shapely.geometry import Polygon, Point
 from tqdm import tqdm
+from termcolor import colored
 
-from data.config import *
+from config import *
 
 global ROUTER, GEOLOCATOR, MANUFACTURER_ID
 
@@ -37,7 +39,7 @@ def init():
             entries[manufacturer] = get_random_id(False)
 
         MANUFACTURER_ID = entries
-        logging.info("Successfully initiated MANUFACTURER_ID dict")
+        logging.info(colored("Successfully initiated MANUFACTURER_ID dict", "green"))
         logging.debug("MANUFACTURER_ID dict: {d}".format(d=MANUFACTURER_ID))
 
     global ROUTER, GEOLOCATOR
@@ -80,10 +82,10 @@ def get_nodes(coord_a, coord_b):
     try:
         node_a = ROUTER.findNode(coord_a[0], coord_a[1])
         node_b = ROUTER.findNode(coord_b[0], coord_b[1])
-        logging.info("Successfully computed start and end node")
+        logging.info(colored("Successfully computed start and end node", "green"))
         return node_a, node_b
     except:
-        logging.warning("Failed to compute start and end node")
+        logging.warning(colored("Failed to compute start and end node", "red"))
 
 
 def get_route(start_node, end_node):
@@ -100,11 +102,11 @@ def get_route(start_node, end_node):
     if status == 'success':
         # Get route coordinates
         coordinates = list(map(ROUTER.nodeLatLon, route))
-        logging.info("Successfully computed route")
+        logging.info(colored("Successfully computed route", "green"))
         logging.debug("Route: {r}".format(r=coordinates))
         return coordinates
     else:
-        logging.warning("Failed to compute route")
+        logging.warning(colored("Failed to compute route", "red"))
         return None
 
 
@@ -151,7 +153,7 @@ def get_random_time():
     random_second = random.randrange(int_delta)
     random_time = start + timedelta(seconds=random_second)
 
-    logging.info("Successfully computed random time: {t}".format(t=random_time))
+    logging.info(colored("Successfully computed random time: {t}".format(t=random_time), "green"))
 
     return random_time
 
@@ -185,26 +187,22 @@ def get_city_boundaries(city, country):
                 lonlat = i['geojson']['coordinates']
                 while len(lonlat) < 10:
                     lonlat = lonlat[0]
-                logging.debug("Found boundary coordinates for {city}, {country}:".format(city=city, country=country))
+                logging.debug(colored("Found boundary coordinates for {city}, {country}:".format(city=city, country=country), "green"))
                 logging.debug(i)
                 break
         if lonlat == None:
-            logging.error(
-                "Could not find boundary coordinates for {city}, {country}.".format(city=city, country=country))
+            logging.error(colored(
+                "Could not find boundary coordinates for {city}, {country}.".format(city=city, country=country), "red"))
 
         return lonlat
 
     logging.debug("Exec get_city_boundaries()")
 
-    # for city in cities:
-    # Init data dict
-    data = {'city': city, 'country': country}
+    # Extract coordinates, apply buffer and convert to Polygon for the city
     city = city.replace('ä', 'a').replace('ö', 'o').replace('ü', 'u')
-
-    # Extract coordinates, apply buffer and convert to Polygon
     lonlat = get_boundary_lonlat(city, country)
     poly = Polygon(lonlat).buffer(0.005)
-    logging.info("Successfully got polygon for {city}, {country}".format(city=city, country=country))
+    logging.info(colored("Successfully got polygon for {city}, {country}".format(city=city, country=country), "green"))
 
     return poly
 
@@ -236,7 +234,7 @@ def get_random_coords(poly):
     """
     logging.debug("Exec get_random_coords()")
     dist = 0
-    while (dist < MIN_DIST) or (dist > MAX_DIST):
+    while (dist < MIN_DIST_KM) or (dist > MAX_DIST_KM):
         start_latlon = get_valid_coord(poly)
         end_latlon = get_valid_coord(poly)
         dist = get_distance(start_latlon, end_latlon)
@@ -272,42 +270,58 @@ def compute_trip(start_coord, end_coord):
 
             try:
                 zipcode = get_zipcode(route_coords[i][0], route_coords[i][1])
+
             except Exception as e:
                 if i > 0:
-                    logging.info("Could not get ZIP code. Using i-1 ZIP code.")
+                    logging.info(colored("Could not get ZIP code. Using i-1 ZIP code.", "yellow"))
                     zipcode = trip[i - 1]["zipcode"]
                 else:
-                    logging.ERROR("Could not get ZIP code! {e}".format(e=e))
+                    logging.ERROR(colored("Could not get ZIP code! {e}".format(e=e), "red"))
                     break
 
             if i == 0:
-                dist = 0
-                speed = 0
+                # Init variables
                 seconds = 0
-                co2 = 0
+                dist = 0
+                km_per_hour = 0
+                co2_per_km = 0
+                co2_relative = 0
             else:
+                # Else, compute route and random speed, distance, co2 grams, and seconds
                 a = route_coords[i - 1]
                 b = route_coords[i]
 
-                # Compute random speed that is between 80% and 115% of SPEED
+                # Compute random speed that is between 60% and 115% of the previously recorded speed
+                seconds = round((dist / km_per_hour) * 60 * 60, 0)
                 dist = get_distance(a, b)
-                speed = round(SPEED * random.randint(50, 115) / 100, 0)
-                seconds = round((dist / speed) * 60 * 60, 0)
-                co2 = round(CO2 * random.randint(70, 130) / 100, 0)
+                if dist == 0:
+                    km_per_hour = 0
+                    co2_per_km = 0
+                    co2_relative = 0
+                else:
+                    km_per_hour = round(speed_old * random.randint(60, 115) / 100, 0)
+                    co2_per_km = round(co2_per_km_old * random.randint(70, 120) / 100, 0)
+                    co2_relative = round(co2_per_km * dist, 2)
+
+            # Store old variables for next round (to make values somewhat cohesive)
+            speed_old = km_per_hour if km_per_hour > 0 else KM_PER_HOUR
+            co2_per_km_old = co2_per_km if co2_per_km > 0 else CO2_PER_KM
 
             # Add to totals
             total_dist += round(dist, 2)
             total_seconds += seconds
             timestamp += timedelta(seconds=seconds)
-            total_co2 += round(co2, 0)
+            total_co2 += round(co2_relative, 0)
             logging.debug(
-                "Speed: {s}km/h, distance: {d}km, time: {t}s | Total time: {tt}s, Total dist: {td}km".format(s=speed,
+                "Speed: {s}km/h, Distance: {d}km, Time: {t}s, CO2: {co}g | Total time: {tt}s, Total dist: {td}km, Total CO2: {tco}g".format(s=km_per_hour,
                                                                                                              d=dist,
+                                                                                                             co=co2_relative,
                                                                                                              t=seconds,
                                                                                                              tt=total_seconds,
                                                                                                              td=round(
                                                                                                                  total_dist,
-                                                                                                                 2)))
+                                                                                                                 2),
+                                                                                                             tco=total_co2))
 
             point = {
                 "count": i,
@@ -318,21 +332,21 @@ def compute_trip(start_coord, end_coord):
                 "latlon": route_coords[i],
                 "dist": dist,
                 "seconds": seconds,
-                "co2": co2 * dist,
+                "co2_grams": co2_relative,  # CO2 grams / km relative to travelled distance
                 "total_dist": total_dist,
                 "total_seconds": total_seconds,
-                "total_co2": total_co2,
+                "total_co2_grams": total_co2,
                 "timestamp_tripstart": timestamp_start,
-                "avg_speed": total_dist / ((total_seconds / 60) / 60) if total_seconds > 0 else 0,
+                "avg_kmperhour": total_dist / ((total_seconds / 60) / 60) if total_seconds > 0 else 0,
                 "avg_co2perkm": total_co2 / total_dist if total_dist > 0 else 0
             }
             trip.append(point)
 
-        print(trip[-1])
+        print(colored(trip[-1], "blue"))
         df = pd.DataFrame(trip)
 
         return df
 
     except Exception as e:
-        logging.error("compute_route() failed. {e}".format(e=e))
+        logging.error(colored("compute_route() failed. {e}".format(e=e), "red"))
         return None
