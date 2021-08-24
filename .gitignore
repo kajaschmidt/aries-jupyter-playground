@@ -11,5 +11,6 @@ __pycache__/
 manage_proxy.sh
 libs/identifiers.json
 agents/*/notebooks/libs/
+agents/*/notebooks/data/
 data/tilescache/
 

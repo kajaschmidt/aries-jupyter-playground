@@ -164,8 +164,8 @@ def get_random_time(): #@todo: what's the type of random_time?
 
 def get_city_boundaries() -> Polygon:
     """
-    Get city boundaries of the city specified in config
-    Returns: polygon with city boundaries
+    Get geo_data boundaries of the geo_data specified in config
+    Returns: polygon with geo_data boundaries
 
     """
 
@@ -199,7 +199,7 @@ def get_city_boundaries() -> Polygon:
 
     logging.debug("Exec get_city_boundaries()")
 
-    # Extract coordinates, apply buffer and convert to Polygon for the city
+    # Extract coordinates, apply buffer and convert to Polygon for the geo_data
     city = CITY.replace('ä', 'a').replace('ö', 'o').replace('ü', 'u')
     lonlat = get_boundary_lonlat(city, COUNTRY)
     poly = Polygon(lonlat).buffer(0.005)

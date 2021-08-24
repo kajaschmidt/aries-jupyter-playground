@@ -85,7 +85,8 @@ services:
       - duet-domain
     volumes:
       - ./agents/manufacturer1/notebooks:/workspace
-      - ./data/manufacturer1:/workspace/data
+      - ./data/manufacturer1:/workspace/data/trips
+      - ./data/geo_data:/workspace/data/geo
       - ./libs:/workspace/libs
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
@@ -153,7 +154,8 @@ services:
       - duet-domain
     volumes:
       - ./agents/manufacturer2/notebooks:/workspace
-      - ./data/manufacturer2:/workspace/data
+      - ./data/manufacturer2:/workspace/data/trips
+      - ./data/geo_data:/workspace/data/geo
       - ./libs:/workspace/libs
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
@@ -221,7 +223,8 @@ services:
       - duet-domain
     volumes:
       - ./agents/manufacturer3/notebooks:/workspace
-      - ./data/manufacturer3:/workspace/data
+      - ./data/manufacturer3:/workspace/data/trips
+      - ./data/geo_data:/workspace/data/geo
       - ./libs:/workspace/libs
     ports:
       # Jupyter Notebook port - always map from 8888 to any available port
@@ -336,6 +339,7 @@ services:
       - ./data/manufacturer1:/workspace/xx/data/anonymous1
       - ./data/manufacturer2:/workspace/xx/data/anonymous2
       - ./data/manufacturer3:/workspace/xx/data/anonymous3
+      - ./data/geo_data:/workspace/xx/data/geo
     ports:
       - 8890:8888
       # WEBHOOK_PORT

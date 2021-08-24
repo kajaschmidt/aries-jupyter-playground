@@ -18,7 +18,7 @@ def main():
     init()
     df = pd.DataFrame()
 
-    # Get city polygon and find random coordinates within it
+    # Get geo_data polygon and find random coordinates within it
     city_poly = get_city_boundaries()
 
     # Iterate through number of journeys and compute them
@@ -26,7 +26,7 @@ def main():
 
         logging.info("--- COMPUTING JOURNEY {i}/{n} ---".format(i=i + 1, n=N_JOURNEYS))
 
-        # Get random start and end coortinates and compute trip
+        # Get random start and end coordinates and compute trip
         start_coord, end_coord = get_random_coords(city_poly)
         df_trip = compute_trip(start_coord, end_coord)
 

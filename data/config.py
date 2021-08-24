@@ -12,7 +12,7 @@ PATH = os.path.dirname(os.path.realpath(__file__))+"/"
 FILE_NAME = "testdata_{time}.csv".format(time=dt.now()) if DEBUG is True else "data.csv"
 
 # Execution variables -- can be modified
-N_JOURNEYS = 6  # Number of journeys computed
+N_JOURNEYS = 1000  # Number of journeys computed
 N_MANUFACTURERS = 3  # Number of manufacturers for whom journeys will be computed
 CITY = "Berlin"
 COUNTRY = "DE"
