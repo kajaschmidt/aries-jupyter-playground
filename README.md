@@ -30,7 +30,14 @@ Ensure that Docker is running. If it is not try `sudo dockerd` in another termin
 
 ## Starting the PoC
 
-This playground comes with five agents that interact with one another: Authority, City, Manufacturer1, Manufacturer2, and Manufacturer3. Each agent has four containers (Aries Agent, Wallet Postgres-DB, Ngrok, and Jupyter Lab). The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container.
+This playground comes with five agents that interact with one another: 
+* Authority 🏛
+* City 🏙️
+* Manufacturer1 🚗
+* Manufacturer2 🚛
+* Manufacturer3 🛵
+
+Each agent has four containers (Aries Agent, Wallet Postgres-DB, Ngrok, and Jupyter Lab). The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container.
 
 Before you can launch the PoC, you must set the .env file for each of agent. For a quick start, copy the files `playground/<agent-name>/<agent-name>_example.env` and rename them to `playground/<agent-file>/.env`.
 
