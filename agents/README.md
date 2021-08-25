@@ -84,8 +84,8 @@ JUPYTER_PORT=8888
 
 | Agent | `HTTP_PORT_LOCAL` | `ADMIN_PORT_LOCAL` | `JUPYTER_PORT_LOCAL` | `WEBHOOK_PORT_LOCAL` |
 | --- | --- | --- | --- | --- |
-| Authority | 3020 | 3021 | 8888 | 3010 |
-| City | 3022 |3023  | 8890 | 3011 |
-| Manufacturer1 | 4020 | 4021 | 8889 | 4010 |
-| Manufacturer2 | 4022 | 4023 | 8891 | 4011 |
-| Manufacturer3 | 4024 | 4025 | 8892 | 4012 |
+| Authority 🏛 | 3020 | 3021 | 8888 | 3010 |
+| City 🏙 | 3022 |3023  | 8890 | 3011 |
+| Manufacturer1 🚗 | 4020 | 4021 | 8889 | 4010 |
+| Manufacturer2 🚛 | 4022 | 4023 | 8891 | 4011 |
+| Manufacturer3 🛵 | 4024 | 4025 | 8892 | 4012 |

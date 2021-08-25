@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diagram>
+  <ID>Python</ID>
+  <OriginalElement>#/Users/Kaja/workplace/aries-sympc-jupyter/libs/agent_connection_manager</OriginalElement>
+  <nodes>
+    <node x="739.0" y="383.0">syft.grid.duet.exchange_ids.DuetCredentialExchanger</node>
+    <node x="1710.0" y="350.0">libs.agent_connection_manager.message.Message</node>
+    <node x="609.0" y="620.0">libs.agent_connection_manager.agent_connection_manager.AgentConnectionManager</node>
+    <node x="1295.0" y="835.0">libs.agent_connection_manager.agent_connection_manager.CredentialHolder</node>
+    <node x="662.0" y="835.0">libs.agent_connection_manager.agent_connection_manager.RelyingParty</node>
+    <node x="0.0" y="835.0">libs.agent_connection_manager.agent_connection_manager.IssuingAuthority</node>
+    <node x="1372.0000000000002" y="0.0">typing.Hashable</node>
+    <node x="1218.0" y="273.0">libs.agent_connection_manager.connection.Connection</node>
+    <node x="1384.0000000000002" y="80.0">object</node>
+  </nodes>
+  <notes />
+  <edges>
+    <edge source="object" target="typing.Hashable" relationship="INTERFACE">
+      <point x="0.0" y="-71.5" />
+      <point x="0.0" y="15.0" />
+    </edge>
+    <edge source="libs.agent_connection_manager.agent_connection_manager.RelyingParty" target="libs.agent_connection_manager.agent_connection_manager.AgentConnectionManager" relationship="REALIZATION">
+      <point x="1.1368683772161603E-13" y="-27.5" />
+      <point x="0.0" y="82.5" />
+    </edge>
+    <edge source="libs.agent_connection_manager.agent_connection_manager.IssuingAuthority" target="libs.agent_connection_manager.agent_connection_manager.AgentConnectionManager" relationship="REALIZATION">
+      <point x="0.0" y="-27.5" />
+      <point x="321.0" y="810.0" />
+      <point x="968.5" y="810.0" />
+      <point x="0.0" y="82.5" />
+    </edge>
+    <edge source="libs.agent_connection_manager.message.Message" target="object" relationship="REALIZATION">
+      <point x="0.0" y="-71.5" />
+      <point x="1928.5" y="248.0" />
+      <point x="1454.0000000000002" y="248.0" />
+      <point x="0.0" y="71.5" />
+    </edge>
+    <edge source="libs.agent_connection_manager.agent_connection_manager.AgentConnectionManager" target="syft.grid.duet.exchange_ids.DuetCredentialExchanger" relationship="REALIZATION">
+      <point x="0.0" y="-82.5" />
+      <point x="0.0" y="38.5" />
+    </edge>
+    <edge source="libs.agent_connection_manager.agent_connection_manager.CredentialHolder" target="libs.agent_connection_manager.agent_connection_manager.AgentConnectionManager" relationship="REALIZATION">
+      <point x="0.0" y="-27.5" />
+      <point x="1618.5" y="810.0" />
+      <point x="968.5" y="810.0" />
+      <point x="0.0" y="82.5" />
+    </edge>
+    <edge source="libs.agent_connection_manager.connection.Connection" target="object" relationship="REALIZATION">
+      <point x="2.2737367544323206E-13" y="-148.5" />
+      <point x="0.0" y="71.5" />
+    </edge>
+    <edge source="syft.grid.duet.exchange_ids.DuetCredentialExchanger" target="object" relationship="REALIZATION">
+      <point x="-1.1368683772161603E-13" y="-38.5" />
+      <point x="968.5" y="248.0" />
+      <point x="1454.0000000000002" y="248.0" />
+      <point x="0.0" y="71.5" />
+    </edge>
+  </edges>
+  <settings layout="Hierarchic" zoom="0.6437777043691704" showDependencies="false" x="1258.048773327565" y="414.1060251860166" />
+  <SelectedNodes />
+  <Categories>
+    <Category>Fields</Category>
+    <Category>Inner Classes</Category>
+  </Categories>
+</Diagram>
+

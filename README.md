@@ -10,7 +10,7 @@ Design, describe and implement actors and interactions involving the verifiable 
 This project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. As a learner, experimenter or explorer using this playground you get to focus on writing business logic in python through a Jupyter notebook interface that uses the aries-cloudcontroller to interface with the actors respective ACA-Py agent. Either by sending API requests to their exposed Swagger-API or receiving events from this agent posted to a webhook server that you can run within the notebook.
 
 
-![PoC Architecture](./system-architecture.png)
+![PoC Architecture](docs/system-architecture.png)
 
 ## Requirements
 

@@ -2,7 +2,7 @@
 #############   Aries ACA-Py ACC-Py Jupyter Playground Configuration   ###############
 ######################################################################################
 ##### The example configuration defines services for two actors: authority and manufacturer1   #####
-##### A template for the set of template template is provided below these              #####
+##### A template for the set of template is provided below these              #####
 ##### Uncomment and customise as you like                                        #####
 ##### You will need to create a folder under agents for this template           #####
 ##### Copy the template agents/template folder to get started                   #####
@@ -10,7 +10,7 @@
 ##### The notebooks folder will be mounted in the jupyter workspace              #####
 ##### You need to customise the dummy.env file and rename it to .env             #####
 ##### Change any variables enclosed with < > e.g. ENV=<template>                    #####
-##### You do not need to change the ports - each agent runs on it's own container ####
+##### You do not need to change the ports - each agent runs on its own container ####
 ##### Make sure you map the ports in the env file to unique ports on your machine ####
 ##### All the docker services use this file                                      #####
 ##### Add any defined services to the DEFAULT_CONTAINERS arg in the manage file  #####
