@@ -41,7 +41,7 @@ Each agent has four containers (Aries Agent, Wallet Postgres-DB, Ngrok, and Jupy
 
 Before you can launch the PoC, you must set the .env file for each of agent. For a quick start, copy the files `playground/<agent-name>/<agent-name>_example.env` and rename them to `playground/<agent-file>/.env`.
 
-Then, move to the `./SyMPC` directory and clone the [SyMPC repository](https://github.com/OpenMined/SyMPC). The SyMPC package is created by the OpenMined organization, and an extension of the [PySyft](https://github.com/OpenMined/PySyft) library, and automatically installs PySyft (which is needed for this PoC). 
+Then, move to the `./SyMPC` directory and clone the [SyMPC](https://github.com/OpenMined/SyMPC) repository. The SyMPC package is created by the OpenMined organization, and an extension of the [PySyft](https://github.com/OpenMined/PySyft) library, and automatically installs PySyft (which is needed for this PoC). 
 
 Finally run:
 
@@ -51,7 +51,7 @@ This spins up all docker containers defined in the `docker-compose.yml` file and
 
 **Note:** An error when spinning the docker containers might be `Service '<docker-container>' failed to build : Build failed`. A possible solution is to up the Memory available to docker to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container).
 
-The urls for the jupyter notebook server for each agent can be retrieved by running `./scripts/get_URLS.sh` in a terminal from the root of this project.
+The ULRs for the jupyter notebook server for each agent can be retrieved by running `./scripts/get_URLS.sh` in a terminal from the root of this project.
 
 To stop the PoC either:
 
