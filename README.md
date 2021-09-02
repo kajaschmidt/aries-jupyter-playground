@@ -1,18 +1,43 @@
-# Combining Aries ACA-Py and PySyft for Sovereign Data Exchange
+# Aries ACA-Py and OpenMined SyMPC Demo
 
-This library is the basis of a master thesis to demonstrate how Aries ACA-Py (SSI) and PySyft (SMC) can be combined to enable sovereign data exchange.
+This repository is the basis of a master thesis to demonstrate and validate how Aries ACA-Py for self-sovereign identity (SSI) and PySyft's extension SyMPC for secure multiparty computation (SMC) can be combined to enable sovereign data exchange.
+
+Specifically, the use cases designs, describes, and implements actors and interactions involving verifiable credential (VC) exchange of information in the context of vehicle emission data.
+
+This project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. 
+
+The business logic of the individual agents (i.e., how they interact with one another) is implemented through Jupyter notebook interfaces. 
+The Jupyter notebooks use the aries-cloudcontroller to interface with the actors respective ACA-Py agent. 
+Either by sending API requests to their exposed Swagger-API or receiving events from this agent posted to a webhook server that is run within the notebooks.
+
+All business logic is written is python through jupyter notebooks. The pip installable package the [Aries Cloud Controller](https://github.com/didx-xyz/aries-cloudcontroller-python) is used; it provides an easy-to-use interface to interact with the Swagger API exposed by ACA-Py agents as well as receive and handle webhook events they post.
+
+**Note:** The repository was forked from the [Aries-Jupyter Playground](https://github.com/wip-abramson/aries-jupyter-playground) as a basis to develop the use case.
 
 
-## A Jupyter Notebook Based PoC to demonstrate the combination of Self-Sovereign Identity and Secure Multiparty Computation
+## Sovereign Data Exchange Use Case: Trading Vehicle Emission Data
 
-Design, describe and implement actors and interactions involving the verifiable exchange of information relevant to a specific context. Learn and evaluate what is technically possible using these technologies, validate them for your use case.
+The use case concerns the sharing of emission data. A city municipality wants to know how much CO2 is emitted by vehicles in road traffic over time. 
+The city (i.e., data consumer) approaches car manufacturers (i.e., data providers) and asks whether the manufacturers are willing to share the 
+emission data of their vehicles. The city outlines a set of conditions the car manufacturers should fulfill for the use case:
 
-This project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. As a learner, experimenter or explorer using this playground you get to focus on writing business logic in python through a Jupyter notebook interface that uses the aries-cloudcontroller to interface with the actors respective ACA-Py agent. Either by sending API requests to their exposed Swagger-API or receiving events from this agent posted to a webhook server that you can run within the notebook.
+1. The emission data should be as exact as possible (geolocation and timestamp).
+2. The manufacturers can certify the validity of shared emission data. 
+
+The manufacturers would like to support the city, but are afraid to lose a competitive advantage, reveal sensitive emission data, or face reputation losses (Zöll, Olt, and Buxmann, 2021). Thus, the participating manufacturers define a set of conditions:
+1. The city and participating manufacturers remain unaware of how much total CO2 was emitted by one manufacturer.
+2. The exact number of vehicles and CO2emission per vehicle remains unknown to third parties.
+3. The personal data (i.e., timestamp and coordinates) of car drivers who consent to data collection is anonymized.
+4. The city only uses the shared emission data for the outlined purpose.
+
+## Project architecture
+
+![Use Case Architecture](docs/uml-agents.png)
 
 
-![PoC Architecture](docs/system-architecture.png)
+## Getting started
 
-## Requirements
+### Requirements
 
 This project is written in Python and is displayed in jupyter notebooks.
 
@@ -28,7 +53,7 @@ Verify that **s2i** is in your PATH.  If not, then edit your PATH and add the di
 
 Ensure that Docker is running. If it is not try `sudo dockerd` in another terminal.
 
-## Starting the PoC
+### Running the Use Case
 
 This playground comes with five agents that interact with one another: 
 * Authority 🏛
@@ -37,76 +62,29 @@ This playground comes with five agents that interact with one another:
 * Manufacturer2 🚛
 * Manufacturer3 🛵
 
-Each agent has four containers (Aries Agent, Wallet Postgres-DB, Ngrok, and Jupyter Lab). The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container.
+Each agent has four containers: 
+* Aries Agent Container: `<agent-name>-agent`
+* Wallet PostgresDB: `<agent-name>-wallet-db`
+* Ngrok: `ngrok-<agent-name>`
+* Jupyter Lab: `<agent-name>-business-logic`
 
-Before you can launch the PoC, you must set the .env file for each of agent. For a quick start, copy the files `playground/<agent-name>/<agent-name>_example.env` and rename them to `playground/<agent-file>/.env`.
+The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container. 
+The containers are configured in `docker-compose.yml` and the respective `agents/<agent-name>/.env` files. 
+(See [this](https://github.com/hyperledger/aries-cloudagent-python/blob/main/aries_cloudagent/config/argparse.py) file to understand the variables in the `.env` files.)
+All actors use the indy network Sovrin StagingNet to write and resolve cryptographic objects to and from (see `ACA_PY_GENESIS_URL` variable in `.env` files).
 
-Then, move to the `./SyMPC` directory and clone the [SyMPC](https://github.com/OpenMined/SyMPC) repository. The SyMPC package is created by the OpenMined organization, and an extension of the [PySyft](https://github.com/OpenMined/PySyft) library, and automatically installs PySyft (which is needed for this PoC). 
+Please execute the following instructions to run the Use Case:
+1. Before you can launch the Use Case, you must set the .env file for each of agent. For a quick start, copy the files `playground/<agent-name>/<agent-name>_example.env` and rename them to `playground/<agent-file>/.env`.
+2. Move to the `./SyMPC` directory and clone the [SyMPC](https://github.com/OpenMined/SyMPC) repository. The SyMPC package is created by the OpenMined organization, and an extension of the [PySyft](https://github.com/OpenMined/PySyft) library, and automatically installs PySyft (which is needed for this Use Case). 
+3. Run: `./manage.sh start`. This spins up all docker containers defined in the `docker-compose.yml` file and named in the DEFAULT_CONTAINERS variable defined in the `manage.sh` shell script. 
+4. Retrieve the URLs for each agent's jupyter notebook (business logic) by running `./scripts/get_URLS.sh` in a terminal from the root of this project.
 
-Finally run:
-
-`./manage.sh start`
-
-This spins up all docker containers defined in the `docker-compose.yml` file and named in the DEFAULT_CONTAINERS variable defined in the `manage.sh` shell script. 
+To stop the docker containers run either of the two commands:
+* `./manage.sh stop` - this terminates the containers but persists the volumes. Specifically the agent wallet storage held in postgres-db's
+* `./manage.sh down` - terminate containers and delete all volumes (e.g., the issued VCs stored in an agent's wallet)
 
 **Note:** An error when spinning the docker containers might be `Service '<docker-container>' failed to build : Build failed`. A possible solution is to up the Memory available to docker to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container).
 
-The ULRs for the jupyter notebook server for each agent can be retrieved by running `./scripts/get_URLS.sh` in a terminal from the root of this project.
-
-To stop the PoC either:
-
-`./manage.sh stop` - this terminates the containers but persists the volumes. Specifically the agent wallet storage held in postgres-db's
-
-`./manage.sh down` - terminate containers and delete all volumes (e.g., the issued VCs stored in an agent's wallet)
-
-## Writing Business Logic
-
-The aim of this respository is to simplify the process by which you can spin up a set of actors specific to a domain and start to experiment with relevant information exchanges using the Hyperledger verifiable information exchange platform.
-
-All business logic is written is python through jupyter notebooks. Alongside this repository we have developed a pip installable package the [Aries Cloud Controller](https://github.com/didx-xyz/aries-cloudcontroller-python), which provides an easy to use interface to interact with the Swagger API exposed by ACA-Py agents as well as receive and handle webhook events they post.
-
-To streamline the process of writing business logic further, each business-logic docker service has the `recipes` folder mounted such that it is accessible through the jupyter interface. In here there are a set of templates for common protocols you might want your agents to engage in. We suggest you copy these templates into the root of the notebook server and customise from there.
-
-If you wish to learn more about applying SSI, the Hyperledger Stack and the Aries Cloud Controller within this setting a set of tutorials have been developed within a similar notebook-playground environment in the [OpenMined PyDentity](https://github.com/OpenMined/PyDentity) repo. This code is a generalisation of a pattern we repeated regularly while building this code.
-
-## Configuring the Playground
-
-The playground is designed to make it easy for you to add new actors and start writing SSI ecosystem flows. 
-
-To add an actor you need to make three changes:
-
-* Create a folder under `playground` for that actor and make sure it has a .env file under that folder. You can copy the template `actor` folder and use the `dummy.env` file to get started but will need to edit the file.
-* Define the actor services in the `docker-compose.yml`. More detailed instructions included in the comments in that file, including commented out set of services for the actor `actor` that you can copy and use as a template to get started. You will need to edit these.
-* Add the new services to the DEFAULT_CONTAINERS variable in the `manage.sh` script
-
-Feel free to customise authority and manufacturer1 aswell. It makes sense to name your actors something meaningful to the usecase you are trying to model.
-
-## ACA-Py Agent Configuration
-
-Each agent instance has it's own environment file e.g. `authority/.authority-example.env`. These define default ACA-PY environment variables, which are best understood by reading through the code that parses them. This can be found [here](https://github.com/hyperledger/aries-cloudagent-python/blob/main/aries_cloudagent/config/argparse.py).
-
-## Using Different Indy Networks
-
-An aries agent points to the indy network it wishes to use to write and resolve cryptographic objects to and from. All actors in the flow should use the same network - See the ACA_PY_GENESIS_URL argument in .env files.
-
-The master branch currently is set to use the Sovrin StagingNet.
-
-It is also possible to use the BC Gov's Test Network VON - http://greenlight.bcovrin.vonx.io/genesis
-
-Or a local ledger can be spun up either within the docker-compose.yml or separately by cloning the [VON codebase](https://github.com/bcgov/von-network)
-
-## Moving Your Ideas Out of The Playground
-
-At some point you are likely to want to make your ideas more "real". Maybe your use case needs a frontend, or wants to be publicly accessible and automatically responsive to agents on the public internet.
-
-There are two repositories that might help you take that next step, based on experiments we have been doing ourselves.
-
-* Issuer Service: https://github.com/wip-abramson/aries-issuer-service 
-    * This codebase lets you run an agent and associated server so that you can write logic for how the agent should respond to certain events. For example a connection becoming active might be challenged to present a specific set of attributes from a certain schema. Or it might automatically trigger the issuance of a credential. I have found this useful to get credentials out into the hands of holders so they can use them elsewhere in your system.
-* Aries Full Stack React Starter: https://github.com/wip-abramson/aries-acapy-fullstack-starter
-    * Want to build a full stack application with SSI capabilities. This might help you get started.
-    
-One of the great things I have found with this playground is you can model the entire ecosystem you are focused on, test assumptions and validate usecases. Then you can focus on a single actor and implement a POC for a more realistic version of their application/interface.
 
 # Error Messages
 There is a chance you run into certain error messages. Here is a list of how to deal with a few of them: 
