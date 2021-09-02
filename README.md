@@ -1,16 +1,14 @@
 # Aries ACA-Py and OpenMined SyMPC Demo
 
-This repository is the basis of a master thesis to demonstrate and validate how Aries ACA-Py for self-sovereign identity (SSI) and PySyft's extension SyMPC for secure multiparty computation (SMC) can be combined to enable sovereign data exchange.
-
+**What:** This repository is the basis of a master thesis to demonstrate and validate how Aries ACA-Py for self-sovereign identity (SSI) and PySyft's extension SyMPC for secure multiparty computation (SMC) can be combined to enable sovereign data exchange. 
 Specifically, the use cases designs, describes, and implements actors and interactions involving verifiable credential (VC) exchange of information in the context of vehicle emission data.
 
-This project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. 
-
+**How:** The project uses Docker and docker-compose to support and simplify the arbitrary configuration of actors within a SSI ecosystem. 
 The business logic of the individual agents (i.e., how they interact with one another) is implemented through Jupyter notebook interfaces. 
 The Jupyter notebooks use the aries-cloudcontroller to interface with the actors respective ACA-Py agent. 
 Either by sending API requests to their exposed Swagger-API or receiving events from this agent posted to a webhook server that is run within the notebooks.
 
-All business logic is written is python through jupyter notebooks. The pip installable package the [Aries Cloud Controller](https://github.com/didx-xyz/aries-cloudcontroller-python) is used; it provides an easy-to-use interface to interact with the Swagger API exposed by ACA-Py agents as well as receive and handle webhook events they post.
+**Why:** Demonstrate the implementation of a sovereign data exchange use case.
 
 **Note:** The repository was forked from the [Aries-Jupyter Playground](https://github.com/wip-abramson/aries-jupyter-playground) as a basis to develop the use case.
 
@@ -78,25 +76,29 @@ Please execute the following instructions to run the Use Case:
 2. Move to the `./SyMPC` directory and clone the [SyMPC](https://github.com/OpenMined/SyMPC) repository. The SyMPC package is created by the OpenMined organization, and an extension of the [PySyft](https://github.com/OpenMined/PySyft) library, and automatically installs PySyft (which is needed for this Use Case). 
 3. Run: `./manage.sh start`. This spins up all docker containers defined in the `docker-compose.yml` file and named in the DEFAULT_CONTAINERS variable defined in the `manage.sh` shell script. 
 4. Retrieve the URLs for each agent's jupyter notebook (business logic) by running `./scripts/get_URLS.sh` in a terminal from the root of this project.
+5. Run the use case's demo (parallel to the steps in the sequence diagram)
+   1. Open the authority's jupyter notebook. Then, execute Notebook `01_init_authority_as_issuer.ipynb`
+   2. Open the manufacturers' jupyter notebooks. Then, execute the authority's and manufacturers' notebooks starting with `02_`
+   3. Open the city's jupyter notebook. Then, proceed with the city's and manufacturers' notebooks `03_` 
 
 To stop the docker containers run either of the two commands:
 * `./manage.sh stop` - this terminates the containers but persists the volumes. Specifically the agent wallet storage held in postgres-db's
 * `./manage.sh down` - terminate containers and delete all volumes (e.g., the issued VCs stored in an agent's wallet)
 
-**Note:** An error when spinning the docker containers might be `Service '<docker-container>' failed to build : Build failed`. A possible solution is to up the Memory available to docker to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container).
+**Note:** An error when spinning the docker containers might be `Service '<docker-container>' failed to build : Build failed`. A possible solution is to up the Memory available to docker to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container)).
 
 
-# Error Messages
+### Potential Error Messages
 There is a chance you run into certain error messages. Here is a list of how to deal with a few of them: 
 
-### Error 1: Non-responsive agents
+#### Error 1: Non-responsive agents
 In some cases, the agents fail to connect with one another. If too many connection requests are made, a `402` error appears in the Docker logs of one of the agents:
 ```
 aries_cloudagent.transport.outbound.manager ERROR >>> Error when posting to: https://682ea719f54a.ngrok.io; Error: (<class 'aries_cloudagent.transport.outbound.base.OutboundTransportError'>, OutboundTransportError('Unexpected response status 402, caused by: Payment Required',), <traceback object at 0x7fe0d157d788>); Re-queue failed message ...
 ```
 The error asks the user to provide Payment for the ngrok service. A solution is to stop the docker containers through `./manage.sh stop` and restarting them `./manage.sh start`.
 
-### Error 1: Proxy Settings
+#### Error 2: Proxy Settings
 
 * See [this Medium article](https://airman604.medium.com/getting-docker-to-work-with-a-proxy-server-fadec841194e) with information on how to set up a proxy for docker-compose
 * Frequent error when building the docker containers: `Service '<docker-container>' failed to build : Build failed`. Try to increase the memory available memory to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container)
