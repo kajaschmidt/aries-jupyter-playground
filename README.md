@@ -96,9 +96,8 @@ In some cases, the agents fail to connect with one another. If too many connecti
 ```
 aries_cloudagent.transport.outbound.manager ERROR >>> Error when posting to: https://682ea719f54a.ngrok.io; Error: (<class 'aries_cloudagent.transport.outbound.base.OutboundTransportError'>, OutboundTransportError('Unexpected response status 402, caused by: Payment Required',), <traceback object at 0x7fe0d157d788>); Re-queue failed message ...
 ```
-The error asks the user to provide Payment for the ngrok service. A solution is to stop the docker containers through `./manage.sh stop` and restarting them `./manage.sh start`.
+The error asks the user to provide Payment for the ngrok service. A solution is to stop the docker containers through `./manage.sh restart` (or `./manage.sh stop` and restarting the containers `./manage.sh start`).
 
 #### Error 2: Proxy Settings
 
-* See [this Medium article](https://airman604.medium.com/getting-docker-to-work-with-a-proxy-server-fadec841194e) with information on how to set up a proxy for docker-compose
-* Frequent error when building the docker containers: `Service '<docker-container>' failed to build : Build failed`. Try to increase the memory available memory to 3GB (see [StackOverflow post](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container)
+See [this Medium article](https://airman604.medium.com/getting-docker-to-work-with-a-proxy-server-fadec841194e) with information on how to set up a proxy for docker-compose
