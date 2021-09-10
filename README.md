@@ -66,6 +66,8 @@ Each agent has four containers:
 * Ngrok: `ngrok-<agent-name>`
 * Jupyter Lab: `<agent-name>-business-logic`
 
+![Agent Architecture](docs/docker-architecture.jpg)
+
 The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container. 
 The containers are configured in `docker-compose.yml` and the respective `agents/<agent-name>/.env` files. 
 (See [this](https://github.com/hyperledger/aries-cloudagent-python/blob/main/aries_cloudagent/config/argparse.py) file to understand the variables in the `.env` files.)
