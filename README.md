@@ -12,7 +12,7 @@ Either by sending API requests to their exposed Swagger-API or receiving events 
 
 **Note:** The repository was forked from the [Aries-Jupyter Playground](https://github.com/wip-abramson/aries-jupyter-playground) as a basis to develop the use case.
 
-
+---
 ## Sovereign Data Exchange Use Case: Trading Vehicle Emission Data
 
 The use case concerns the sharing of emission data. A city municipality wants to know how much CO2 is emitted by vehicles in road traffic over time. 
@@ -103,3 +103,13 @@ The error asks the user to provide Payment for the ngrok service. A solution is 
 #### Error 2: Proxy Settings
 
 See [this Medium article](https://airman604.medium.com/getting-docker-to-work-with-a-proxy-server-fadec841194e) with information on how to set up a proxy for docker-compose
+
+
+---
+## TO-DOs
+
+See general overview of BBS+ in ACA-PY [here](https://github.com/hyperledger/aries-cloudagent-python/blob/main/JsonLdCredentials.md#didsov)
+
+- [ ] Issue isManufacturer VC as JSON-LD Credential (see [tutorial](https://github.com/hyperledger/aries-cloudagent-python/blob/main/demo/AliceWantsAJsonCredential.md))
+- [ ] Use AIP 2.0 Protocols (see [this](https://github.com/cloudcompass/ToIPLabs/blob/ac5aeb62815158e3a22e31258b3763e393a65528/docs/LFS173xV2/OpenAPIControllerAIP2.md))
+- [ ] See if [this](https://github.com/mattrglobal/ffi-bbs-signatures/blob/4eb2bd60e5e5c8fc3015b32229cca189f491264a/wrappers/python/README.md), [this](https://github.com/mattrglobal/ffi-bbs-signatures/blob/33c48373b84d17693a337380bacaad626b409509/wrappers/dotnet/README.md), or [this](https://github.com/hyperledger/aries-rfcs/blob/08653f21a489bf4717b54e4d7fd2d0bdfe6b4d1a/features/0646-bbs-credentials/README.md) is somehow connected

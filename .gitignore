@@ -16,3 +16,4 @@ agents/*/notebooks/data/
 data/tilescache/
 agents/authority/notebooks/01_issue_VC_city.ipynb
 agents/city/notebooks/01_get_city_VC.ipynb
+SyMPC/smc-examples/*
