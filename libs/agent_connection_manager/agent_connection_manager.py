@@ -19,20 +19,16 @@ sent via E-Mail). Then, messages are sent via the Aries Connection to establish 
 import ast
 import asyncio
 import json
-import logging
-import nest_asyncio
-import qrcode  # @todo: what does this do
-import requests
 import time
+from typing import Dict as TypeDict  # @todo: what does this do
+from typing import Optional
+from typing import Union
+
+import nest_asyncio
+import requests
 from aries_cloudcontroller import AriesAgentController
 from pprintpp import pprint
 from syft.grid.duet.exchange_ids import DuetCredentialExchanger
-from termcolor import colored
-from typing import Dict as TypeDict  # @todo: what does this do
-from typing import List as TypeList  # @todo: what does this do
-from typing import Optional
-from typing import Tuple
-from typing import Union
 
 # local sources
 from .connection import Connection
@@ -42,7 +38,6 @@ from .message import Message
 nest_asyncio.apply()
 
 
-# @todo: might have to make this into a duetcredentialexchanger...
 class AgentConnectionManager(DuetCredentialExchanger):  # dce
 
     def __init__(self, agent_controller: AriesAgentController) -> None:
