@@ -66,7 +66,7 @@ Each agent has four containers:
 * Ngrok: `ngrok-<agent-name>`
 * Jupyter Lab: `<agent-name>-business-logic`
 
-![Agent Architecture](docs/docker-architecture.jpg)
+![Agent Architecture](docs/docker-architecture-two-agents.png)
 
 The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container. 
 The containers are configured in `docker-compose.yml` and the respective `agents/<agent-name>/.env` files. 
