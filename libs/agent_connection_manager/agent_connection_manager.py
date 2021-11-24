@@ -20,13 +20,15 @@ import ast
 import asyncio
 import json
 import time
-from typing import Dict as TypeDict  # @todo: what does this do
+from typing import Dict as TypeDict
 from typing import Optional
 from typing import Union
+from typing import Tuple
 
 import nest_asyncio
 import requests
-from aries_cloudcontroller import AriesAgentController
+from libs.aries_basic_controller import AriesAgentController
+#from aries_cloudcontroller import AriesAgentController
 from pprintpp import pprint
 from syft.grid.duet.exchange_ids import DuetCredentialExchanger
 
@@ -36,7 +38,6 @@ from .helpers import *
 from .message import Message
 
 nest_asyncio.apply()
-
 
 class AgentConnectionManager(DuetCredentialExchanger):  # dce
 
@@ -1106,12 +1107,16 @@ class IssuingAuthority(AgentConnectionManager):
                 loop = asyncio.get_event_loop()
                 create_did_response = loop.run_until_complete(
                     self.agent_controller.wallet.create_did()
+                    #todo: this is where BSS NEEDS TO BE IMPLEMENTED (see https://github.com/hyperledger/aries-cloudagent-python/blob/main/demo/AliceWantsAJsonCredential.md)
+                    #@todo: check out create_did here: https://github.com/OpenMined/PyDentity/blob/master/libs/aries-basic-controller/aries_basic_controller/controllers/wallet.py
+                    #@todo and https://github.com/hyperledger/aries-cloudagent-python/blob/main/JsonLdCredentials.md
                 )
                 did_obj = create_did_response['result']
                 state = "created a new"
 
             print(colored("Successfully {s} DID:".format(s=state), COLOR_SUCCESS, attrs=["bold"]))
-            pprint(did_obj)
+            #pprint(did_obj)
+            pprint(create_did_response)
 
             return did_obj
 
@@ -1119,8 +1124,7 @@ class IssuingAuthority(AgentConnectionManager):
             print(colored("Failed to get DID: ", COLOR_ERROR, attrs=["bold"]), e)
             return None
 
-    def write_did_to_ledger(self, did_obj: dict, url: str = "https://selfserve.sovrin.org/nym",
-                            network: str = "stagingnet") -> None:
+    def write_did_to_ledger(self, did_obj: dict, url: str = "http://dev.greenlight.bcovrin.vonx.io/register", payload=None) -> None:
         """
         Write DID to ledger (by default: Sovrin StagingNet)
         Args:
@@ -1130,21 +1134,23 @@ class IssuingAuthority(AgentConnectionManager):
         Returns: -
         """
         # Variables
-        payload = {"network": network, "did": did_obj["did"], "verkey": did_obj["verkey"], "paymentaddr": ""}
+        if payload is None:
+            payload = {"seed": None, "did": did_obj["did"], "verkey": did_obj["verkey"]}
         headers = {}  # Empty header, because payload includes all information
 
         # Send request
         r = requests.post(url, data=json.dumps(payload), headers=headers)
         response = r.json()
-
+        print(response)
         # Process response
-        status = response["statusCode"]
-        body = ast.literal_eval(response["body"])
-        reason = body[did_obj["did"]]["reason"]
+        #status = response["statusCode"]
+        #body = ast.literal_eval(response["body"])
+        #pprint(body)
+        #reason = body[did_obj["did"]]["reason"]
 
         # Print response
-        text_color = COLOR_SUCCESS if status == 200 else COLOR_ERROR
-        print(colored(reason, text_color, attrs=["bold"]))
+        #text_color = COLOR_SUCCESS if status == 200 else COLOR_ERROR
+        #print(colored(reason, text_color, attrs=["bold"]))
 
     def make_did_public(self, did_obj: dict) -> None:
         """
@@ -1259,7 +1265,7 @@ class IssuingAuthority(AgentConnectionManager):
         )
 
         cred_def_id = cred_def_response["credential_definition_id"]
-        print(colored("Successfully wrote credential definition id: {cdef}".format(cdef=cred_def_id)))
+        print(colored("Successfully wrote credential definition id: {cdef}".format(cdef=cred_def_id), COLOR_SUCCESS, attrs=["bold"]))
         return cred_def_id
 
     def offer_vc(self, connection_id: str, schema_id: str, cred_def_id: str,

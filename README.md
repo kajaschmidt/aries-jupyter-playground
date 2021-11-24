@@ -28,9 +28,11 @@ The manufacturers would like to support the city, but are afraid to lose a compe
 3. The personal data (i.e., timestamp and coordinates) of car drivers who consent to data collection is anonymized.
 4. The city only uses the shared emission data for the outlined purpose.
 
+![Use Case Architecture](docs/uml-use-case.jpg)
+
 ## Project architecture
 
-![Use Case Architecture](docs/uml-agents.png)
+![Prototype Architecture](docs/system-architecture.png)
 
 
 ## Getting started
@@ -66,7 +68,7 @@ Each agent has four containers:
 * Ngrok: `ngrok-<agent-name>`
 * Jupyter Lab: `<agent-name>-business-logic`
 
-![Agent Architecture](docs/docker-architecture-two-agents.png)
+![Agent Architecture](docs/docker-architecture.png)
 
 The interface to access the business logic of each agent is managed through the Notebooks in the Jupyter Lab container. 
 The containers are configured in `docker-compose.yml` and the respective `agents/<agent-name>/.env` files. 

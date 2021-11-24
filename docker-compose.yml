@@ -101,7 +101,7 @@ services:
     # env file defines
     env_file:
       - agents/manufacturer2/.env
-    # This creates the data base tables if not present. See resources/init.sql #
+    # This creates the database tables if not present. See resources/init.sql #
     volumes:
       - ./resources/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
