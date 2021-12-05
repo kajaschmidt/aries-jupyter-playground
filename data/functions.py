@@ -1,18 +1,19 @@
 # Import
+import datetime
 import json
 import random
+import time
 import urllib
 from datetime import timedelta
-import time
+from typing import Optional
 
 import geopy
 import geopy.distance
 import pandas as pd
 from pyroutelib3 import Router
 from shapely.geometry import Polygon, Point
-from tqdm import tqdm
 from termcolor import colored
-from typing import Optional
+from tqdm import tqdm
 
 from config import *
 
@@ -112,7 +113,7 @@ def get_route(start_node: str, end_node: str) -> Optional[list]:
         return None
 
 
-def get_zipcode(lat, lon): #@todo: is zip_code a string or an int?
+def get_zipcode(lat: float, lon: float) -> str:
     """
     Get ZIP code from lat and lon
     :param lat: latitude
@@ -122,6 +123,7 @@ def get_zipcode(lat, lon): #@todo: is zip_code a string or an int?
     logging.debug("Exec get_zipcode()")
     location = GEOLOCATOR.reverse((lat, lon))
     zip_code = location.raw['address']['postcode']
+
     return zip_code
 
 
@@ -140,11 +142,11 @@ def get_random_id(car: bool) -> str:
     return random_id
 
 
-def get_random_time(): #@todo: what's the type of random_time?
+def get_random_time() -> datetime.datetime:
     """
     This function will return a random datetime between two datetime
     objects.
-    :return: -
+    :return: datetime
     """
     logging.debug("Exec get_random_time()")
     start = TIME_RANGE[0]
@@ -169,12 +171,12 @@ def get_city_boundaries() -> Polygon:
 
     """
 
-    def get_boundary_lonlat(city: str, country: str): #@todo: output a list?
+    def get_boundary_lonlat(city: str, country: str) -> Optional[list]:
         """
-        @todo
-        :param city:
-        :param country:
-        :return:
+        Get the city boundaries of city in country to use as guidelines which lonlat are valid or not.
+        :param city: string with city name
+        :param country: string with country name
+        :return: list with lonlat or None
         """
 
         logging.debug("Exec nested function get_boundary_lonlat()")
@@ -188,7 +190,9 @@ def get_city_boundaries() -> Polygon:
                 lonlat = i['geojson']['coordinates']
                 while len(lonlat) < 10:
                     lonlat = lonlat[0]
-                logging.debug(colored("Found boundary coordinates for {city}, {country}:".format(city=city, country=country), "green"))
+                logging.debug(
+                    colored("Found boundary coordinates for {city}, {country}:".format(city=city, country=country),
+                            "green"))
                 logging.debug(i)
                 break
         if lonlat == None:
@@ -210,9 +214,9 @@ def get_city_boundaries() -> Polygon:
 
 def get_valid_coord(poly: Polygon) -> tuple:
     """
-    @todo
-    :param poly:
-    :return:
+    Get random coordinate within the boundaries of a city
+    :param poly: polygon with city boundaries
+    :return: (lat, lon)
     """
     logging.debug("Exec get_valid_coord()")
     lon, lat = poly.exterior.xy
@@ -224,14 +228,16 @@ def get_valid_coord(poly: Polygon) -> tuple:
         point_validity = poly.contains(Point(random_lon, random_lat))
         logging.debug("Point validity: {v}".format(v=point_validity))
 
-    return (random_lat, random_lon)
+    latlon = (random_lat, random_lon)
+
+    return latlon
 
 
 def get_random_coords(poly: Polygon) -> tuple:
     """
-    @todo
-    :param poly:
-    :return:
+    Get random coordinates that are not too far away apart from one another
+    :param poly: defined boundaries in which random coordinates are generated
+    :return: tuple with start and end latlon
     """
     logging.debug("Exec get_random_coords()")
     dist = 0
@@ -245,14 +251,15 @@ def get_random_coords(poly: Polygon) -> tuple:
     return start_latlon, end_latlon
 
 
-def compute_trip(start_coord, end_coord) -> Optional[pd.DataFrame]: #@todo: types?
+def compute_trip(start_coord: tuple, end_coord: tuple) -> Optional[pd.DataFrame]:
     """
-    @todo
+    Computes a (realistic) route between start and end coordinate, and enriches the dataset with manufacturer and
+    vehicle IDs, speed, co2 value, distance, time.
     Args:
-        start_coord:
-        end_coord:
+        start_coord: latlon coordinate
+        end_coord: latlon coordinate
 
-    Returns:
+    Returns: pandas Dataframe with information of a trip between start_coord and end_coord.
 
     """
     logging.debug("Exec compute_trip()")
@@ -266,8 +273,8 @@ def compute_trip(start_coord, end_coord) -> Optional[pd.DataFrame]: #@todo: type
             logging.ERROR("Route_coords is None")
             return None
 
-        vehicle_ID = get_random_id(True)
-        manufacturer_ID = get_manufacturerid()
+        vehicle_id = get_random_id(True)
+        manufacturer_id = get_manufacturerid()
         timestamp_start = get_random_time()
         timestamp = timestamp_start
         total_dist = 0
@@ -307,7 +314,7 @@ def compute_trip(start_coord, end_coord) -> Optional[pd.DataFrame]: #@todo: type
                     km_per_hour = 0
                     co2_per_km = 0
                     co2_relative = 0
-                    seconds = random.randint(0,10)
+                    seconds = random.randint(0, 10)
                 else:
                     km_per_hour = round(speed_old * random.randint(60, 115) / 100, 0)
                     co2_per_km = round(co2_per_km_old * random.randint(70, 120) / 100, 0)
@@ -324,19 +331,20 @@ def compute_trip(start_coord, end_coord) -> Optional[pd.DataFrame]: #@todo: type
             timestamp += timedelta(seconds=seconds)
             total_co2 = round(total_co2 + co2_relative, 0)
             logging.debug(
-                "Speed: {s}km/h, Distance: {d}km, Time: {t}s, CO2: {co}g | Total time: {tt}s, Total dist: {td}km, Total CO2: {tco}g".format(s=km_per_hour,
-                                                                                                             d=dist,
-                                                                                                             co=co2_relative,
-                                                                                                             t=seconds,
-                                                                                                             tt=total_seconds,
-                                                                                                             td=round(
-                                                                                                                 total_dist,
-                                                                                                                 2),
-                                                                                                             tco=total_co2))
+                "Speed: {s}km/h, Distance: {d}km, Time: {t}s, CO2: {co}g | Total time: {tt}s, Total dist: {td}km, Total CO2: {tco}g".format(
+                    s=km_per_hour,
+                    d=dist,
+                    co=co2_relative,
+                    t=seconds,
+                    tt=total_seconds,
+                    td=round(
+                        total_dist,
+                        2),
+                    tco=total_co2))
 
             point = {
-                "vehicle_id": vehicle_ID,
-                "manufacturer_id": manufacturer_ID,
+                "vehicle_id": vehicle_id,
+                "manufacturer_id": manufacturer_id,
                 "zipcode": zipcode,
                 "timestamp": timestamp,
                 "latlon": route_coords[i],
@@ -378,16 +386,18 @@ def save_df(data: pd.DataFrame) -> None:
     data = data.reset_index().rename(columns={"index": "i"})
 
     # Store dataset
-    #data.to_csv(PATH + FILE_NAME)
-    #logging.info(colored("Saved df as one csv", "green"))
+    # data.to_csv(PATH + FILE_NAME)
+    # logging.info(colored("Saved df as one csv", "green"))
 
     # Split dataset into N_MANUFACTURER parts and save in given directory
     for i, manufacturer_id in enumerate(data.manufacturer_id.unique()):
-        directory = "manufacturer{i}/".format(i=i+1)
+        directory = "manufacturer{i}/".format(i=i + 1)
         data_i = data[data.manufacturer_id == manufacturer_id]
         data_i = data_i.reset_index(drop=True)
-        dir_exists = os.path.exists(PATH+directory)
+        dir_exists = os.path.exists(PATH + directory)
         if dir_exists is False:
             os.makedirs(PATH + directory)
         data_i.to_csv(PATH + directory + FILE_NAME)
-        logging.info(colored(" > Stored data for manufacturer{i} under {p}".format(i=i+1,p=PATH+directory+FILE_NAME), "green"))
+        logging.info(
+            colored(" > Stored data for manufacturer{i} under {p}".format(i=i + 1, p=PATH + directory + FILE_NAME),
+                    "green"))

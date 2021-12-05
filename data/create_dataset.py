@@ -1,9 +1,7 @@
 from functions import *
-from termcolor import colored
-import time
 
 
-def main():
+def main() -> None:
     """
     Execute the main logic to create a synthetic dataset of trip data in config.CITY, config.COUNTRY.
     Saves dataset in data/, and splits the data into N_MANUFACTURERS and stores the individual datasets under

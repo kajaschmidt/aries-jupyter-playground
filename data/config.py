@@ -5,7 +5,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # Setup variables
-DEBUG = False  # If False, run with a time.sleep(5) to prevent bandwidth limit error
+DEBUG = True  # If False, run with a time.sleep(5) to prevent bandwidth limit error
 PAUSE = 60  # Seconds of pause if DEBUG == False
 OSM_AGENT = 'thesis-fake-dataset'
 PATH = os.path.dirname(os.path.realpath(__file__))+"/"
@@ -17,7 +17,7 @@ N_MANUFACTURERS = 3  # Number of manufacturers for whom journeys will be compute
 CITY = "Berlin"
 COUNTRY = "DE"
 TIME_RANGE = [dt.strptime('2021-08-19 00:00:00', '%Y-%m-%d %H:%M:%S'),
-              dt.strptime('202and 1-08-20 00:00:00', '%Y-%m-%d %H:%M:%S')]
+              dt.strptime('2021-08-20 00:00:00', '%Y-%m-%d %H:%M:%S')]
 
 KM_PER_HOUR = 50  # Default speed (km/h)
 CO2_PER_KM = 130  # Default CO2 emmission (g/km)
