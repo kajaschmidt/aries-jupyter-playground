@@ -1,5 +1,3 @@
-import asyncio
-
 class Message:
 
     def __init__(self, payload):

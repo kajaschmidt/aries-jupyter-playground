@@ -27,8 +27,8 @@ from typing import Tuple
 
 import nest_asyncio
 import requests
-from libs.aries_basic_controller import AriesAgentController
-#from aries_cloudcontroller import AriesAgentController
+#from libs.aries_basic_controller import AriesAgentController
+from aries_cloudcontroller import AriesAgentController
 from pprintpp import pprint
 from syft.grid.duet.exchange_ids import DuetCredentialExchanger
 
@@ -243,7 +243,7 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
                            connection_with: Optional[str] = None,
                            is_active: Optional[bool] = None,
                            is_duet_connection: Optional[bool] = None,
-                           token_partner=None,
+                           token_partner: Optional[str] = None,
                            token: Optional[str] = None,
                            reset_duet: bool = False
                            ) -> Connection:
@@ -382,7 +382,7 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
         """
         return self.agent_listeners
 
-    def get_credentials(self):  # @todo: find out which return type this is!
+    def get_credentials(self):
         """
         Get all credentials that the agent controller has stored in their wallet
         Returns: list of all credentials (i.e., VCs)
@@ -436,9 +436,9 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
         """
         Function to respond to a connection invitation received by an external agent
         Args:
-            alias: name for the connection @todo: verify!
+            alias: name for the connection
             auto_accept: Automatically accept the reponse by the inviting external agent
-            label: @todo: verify!
+            auto_ping: Automatically ping agent on other end of connection
         Returns: connection_id of connection (as string)
         """
         # Ask user to paste invitation from external agent
@@ -468,8 +468,8 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
         Accept the connection invitation sent by an external agent
         Args:
             connection_id: connection id of invitation
-            label: @todo: find out!
-            endpoint: @todo: find out!
+            label: own label for invitation
+            endpoint: own endpoint
         Returns: -
         """
         if auto_accept is False:
@@ -509,7 +509,6 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
             connection_id:
         Returns:
         """
-        # @TODO: see if there is some other auto_attribute that needs to be taken into consideration!
         # Prompt user to decide whether to sent a trust ping or not
         if auto_ping is False:
             choice = get_choice("Send trust ping to finalize connection?",
@@ -527,7 +526,7 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
 
     def _accept_invitation_request(self, connection_id: str, auto_accept: bool) -> None:
         """
-        @todo describe
+        Accept invitation request if auto_accept is False
         Args:
             connection_id:
             auto_accept:
@@ -569,11 +568,11 @@ class AgentConnectionManager(DuetCredentialExchanger):  # dce
 
     def _connections_handler(self, payload: TypeDict) -> None:
         """
-        @todo: describe connections handler!
+        Handle incoming connections and print state information depending on the state of the incoming message.
         Args:
-            payload:
+            payload: dictionary with information of incoming message
 
-        Returns:
+        Returns: -
 
         """
 
@@ -650,7 +649,7 @@ class RelyingParty(AgentConnectionManager):
 
     def send_proof_request(self, connection_id: str, proof_request: TypeDict, comment: str) -> str:
         """
-        @todo
+        Send proof request to a credentialholder
         Args:
             connection_id: connection_id over which to request a proof
             comment: comment for external agent
@@ -718,11 +717,11 @@ class RelyingParty(AgentConnectionManager):
 
     def _relying_party_proof_handler(self, payload: TypeDict) -> None:
         """
-        @todo: fill out!
+        Enriches proof_handler with states specific to the relying party
         Args:
-            payload:
+            payload: payload of incoming connection
 
-        Returns:
+        Returns: -
 
         """
         role = payload["role"]
@@ -875,7 +874,6 @@ class CredentialHolder(AgentConnectionManager):
         loop.run_until_complete(
             self.agent_controller.issuer.store_credential(record_id, referent)
         )
-        # @todo: see what types of returns this can get, and only send message if it actually happened...?
         print(colored("Successfully stored credential with Referent {r}".format(r=referent), COLOR_SUCCESS,
                       attrs=["bold"]))
 
@@ -951,8 +949,6 @@ class CredentialHolder(AgentConnectionManager):
             requirements[attr_val["name"]]["requirements"] = attr_val["restrictions"][0]
             requirements[attr_val["name"]]["request_attr_name"] = attr_key
 
-        # @todo: verify if name of manufacturer is requested!?
-
         return requirements
 
     def _get_suitable_vc_for_proof(self, requirements: dict) -> Tuple[dict, dict]:
@@ -1000,16 +996,15 @@ class CredentialHolder(AgentConnectionManager):
                                     name=name, c=cred["referent"]), COLOR_INFO))
                             revealed[req_name] = {"cred_id": cred["referent"], "revealed": True}
                     except Exception as e:
-                        # @todo: figure out which exception to allow!
                         print(e)
 
         return relevant_credentials, revealed
 
     def _holder_handler(self, payload: TypeDict) -> None:
         """
-        @todo: fill out!
+        Handle connections that are holder-specific
         Args:
-            payload:
+            payload: dictionary with payload of incoming connection
         Returns:
         """
         # Get relevant attributes
@@ -1039,10 +1034,10 @@ class CredentialHolder(AgentConnectionManager):
 
     def _prover_proof_handler(self, payload: TypeDict) -> None:
         """
-        @todo: fill out!
+        Handle incoming prover proof connections
         Args:
-            payload:
-        Returns:
+            payload: dictionary with payload of incoming connection
+        Returns: -
         """
         # Get attributes
         role = payload["role"]
@@ -1115,7 +1110,6 @@ class IssuingAuthority(AgentConnectionManager):
                 state = "created a new"
 
             print(colored("Successfully {s} DID:".format(s=state), COLOR_SUCCESS, attrs=["bold"]))
-            #pprint(did_obj)
             pprint(create_did_response)
 
             return did_obj
@@ -1129,8 +1123,8 @@ class IssuingAuthority(AgentConnectionManager):
         Write DID to ledger (by default: Sovrin StagingNet)
         Args:
             did_obj: dictionary with DID information of agent
-            url: @todo: check!
-            network: @todo: check!
+            url: url to network
+            payload: payload with header information
         Returns: -
         """
         # Variables
@@ -1141,16 +1135,17 @@ class IssuingAuthority(AgentConnectionManager):
         # Send request
         r = requests.post(url, data=json.dumps(payload), headers=headers)
         response = r.json()
-        print(response)
+        #print(response)
+
         # Process response
-        #status = response["statusCode"]
-        #body = ast.literal_eval(response["body"])
-        #pprint(body)
-        #reason = body[did_obj["did"]]["reason"]
+        status = response["statusCode"]
+        body = ast.literal_eval(response["body"])
+        pprint(body)
+        reason = body[did_obj["did"]]["reason"]
 
         # Print response
-        #text_color = COLOR_SUCCESS if status == 200 else COLOR_ERROR
-        #print(colored(reason, text_color, attrs=["bold"]))
+        text_color = COLOR_SUCCESS if status == 200 else COLOR_ERROR
+        print(colored(reason, text_color, attrs=["bold"]))
 
     def make_did_public(self, did_obj: dict) -> None:
         """
@@ -1254,7 +1249,7 @@ class IssuingAuthority(AgentConnectionManager):
         material the agent uses to sign all credentials issued against schema with schema_id
         Args:
             schema_id: id of schema
-            tag: @todo: find out!
+            tag: tag of scheme
             support_revocation: make credential definition support revokation. requires ACAPY_TAILS_SERVER_BASE_URL env
                                 variable to be properly configured
         Returns: credential definition id as string
@@ -1317,7 +1312,7 @@ class IssuingAuthority(AgentConnectionManager):
         """
         Handles the payload for the Issuing Authority when issuing a verifiable credential
         Args:
-            payload: @todo: find out!
+            payload: dictionary with payload of incoming connection
         Returns: -
         """
         # Attributes

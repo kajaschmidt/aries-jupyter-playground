@@ -1,16 +1,17 @@
 import asyncio
-from termcolor import colored
 from typing import Optional
+from typing import Union
 
 from .helpers import *
 
 
 class Connection:
 
-    def __init__(self, connection_id, auto_accept: bool = True, auto_ping: bool = True, alias: Optional[str] = None):
+    def __init__(self, connection_id: str, auto_accept: bool = True, auto_ping: bool = True,
+                 alias: Optional[str] = None) -> None:
         self.connection_id: str = connection_id
         self.is_active: bool = False
-        #self.duet_connection_ids: [str] = []
+        # self.duet_connection_ids: [str] = []
         self.presentation_exchange_ids: [str] = []
         self.verified_attributes: list = []
         self.self_attested_attributes: list = []
@@ -22,8 +23,6 @@ class Connection:
         self.is_duet_connection: bool = False
         self.duet_token_partner: Union[Optional[asyncio.Future()], Optional[str]] = None
         self.duet_token: Optional[str] = None
-
-        # self.display()
 
     def display(self, duet: bool = False) -> None:
         """
